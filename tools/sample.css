@@ -1,0 +1,18 @@
+/* 샘플 캡처용 가상 결제내역 화면. 실제 은행·카드 앱 디자인을 흉내 내지 않은 중립 화면. */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { width: 390px; min-height: 844px; background: #f4f4f2; font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; color: #222; }
+.bar { height: 44px; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; font-size: 14px; font-weight: 600; }
+.head { padding: 12px 20px 16px; }
+.head h1 { font-size: 22px; font-weight: 700; }
+.acct { margin-top: 6px; font-size: 13px; color: #777; }
+.bal { margin-top: 10px; background: #fff; border-radius: 12px; padding: 14px 16px; font-size: 15px; display: flex; justify-content: space-between; }
+.tag { display: inline-block; margin-top: 10px; font-size: 11px; color: #a33; border: 1px solid #e3b8b8; border-radius: 4px; padding: 1px 6px; }
+.day { padding: 18px 20px 6px; font-size: 14px; font-weight: 700; color: #555; }
+.list { background: #fff; margin: 0 12px; border-radius: 14px; padding: 4px 0; }
+.tx { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.ic { width: 34px; height: 34px; border-radius: 50%; flex: none; }
+.main { flex: 1; min-width: 0; }
+.r1, .r2 { display: flex; justify-content: space-between; gap: 10px; }
+.r1 { font-size: 16px; font-weight: 600; }
+.r2 { font-size: 13px; color: #888; margin-top: 3px; }
+.plus { color: #2a7; }
