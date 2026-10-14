@@ -1,0 +1,9 @@
+{
+  "name": "kreceipt-tools",
+  "private": true,
+  "type": "module",
+  "description": "샘플 캡처 생성·화면 점검용 도구 (사이트에는 쓰이지 않음)",
+  "devDependencies": {
+    "playwright": "1.64.0"
+  }
+}
