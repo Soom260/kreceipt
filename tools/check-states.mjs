@@ -174,8 +174,8 @@ const shot = (page, name) => page.screenshot({ path: `out/${name}.png`, fullPage
   await p.goto(BASE + '#make-1');
   await p.setInputFiles('#capture-file', { name: '명세서.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4') });
   await p.click('#capture-read');
-  const r = await p.evaluate(() => ({ f: document.activeElement.id, inv: document.getElementById('capture-file').getAttribute('aria-invalid'), msg: document.querySelector('#capture-file + .field-error')?.textContent }));
-  record('PDF 파일: 칸 아래 안내·초점', r.f === 'capture-file' && r.inv === 'true', r.msg);
+  const r = await p.evaluate(() => { const i = document.getElementById('capture-file'); const err = document.getElementById(i.getAttribute('aria-describedby').split(' ').pop()); return { f: document.activeElement.id, inv: i.getAttribute('aria-invalid'), msg: err?.className === 'field-error' ? err.textContent : '' }; });
+  record('PDF 파일: 상자 아래 안내·초점', r.f === 'capture-file' && r.inv === 'true' && !!r.msg, r.msg);
   await p.click('#capture-read'); // 파일 그대로 다시 눌러도 같은 안내
   await shot(p, 'invalid-file');
   await p.context().close();

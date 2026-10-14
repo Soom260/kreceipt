@@ -243,9 +243,10 @@ export function setupSongPicker({ form, input, stateBox, list, pickedBox, onPick
 
   const renderResults = (songs) => {
     list.replaceChildren();
-    songs.forEach((song) => {
+    songs.forEach((song, k) => {
       const li = document.createElement('li');
       li.className = 'song';
+      li.style.setProperty('--i', k);
       const { frag } = songInfo(song);
       const btns = document.createElement('span');
       btns.className = 'song__btns';

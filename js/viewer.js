@@ -1,7 +1,7 @@
 // 친구에게 받은 링크(#r=...)를 열었을 때 영수증을 보여 주고 "보관하기"를 처리하는 파일.
 
 import { SIM, SIM_SLOW_MS, wait } from './config.js';
-import { showLoading, showError, clearState } from './states.js';
+import { showLoading, showError, clearState, confetti } from './states.js';
 import { decodeReceipt } from './share.js';
 import { addToBox, findInBox, isAvailable } from './storage.js';
 import { renderReceipt } from './receipt.js';
@@ -89,6 +89,7 @@ export function setupViewer() {
     const name = fromInp.value.trim();
     st.textContent = res === 'added' ? `${name ? `${name}님의 영수증으로 ` : ''}보관함에 넣었어요. 위쪽 "보관함"에서 다시 볼 수 있어요.` : '이미 보관함에 있어요.';
     if (name) $('read-title').textContent = `${name}님이 보낸 영수증`;
+    if (res === 'added') confetti(30);
     setKeepButton(findInBox(current.code));
   });
   $('read-image').addEventListener('click', () => {

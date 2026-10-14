@@ -7,13 +7,15 @@ import { setupViewer, showReceived } from './viewer.js';
 import { setupBox, renderBox } from './box.js';
 import { stopPreview } from './music.js';
 import { copyText } from './share.js';
-import { reportState } from './states.js';
+import { reportState, watchStatusLines } from './states.js';
 
 const $ = (id) => document.getElementById(id);
 let first = true;
 
 function show(viewName) {
   document.querySelectorAll('.view').forEach((v) => { v.hidden = v.dataset.view !== viewName; });
+  // 화면 안 덩어리가 차례로 떠오르게 순서 번호(--i)를 붙인다 (css/style.css 의 .view > *)
+  [...$(`view-${viewName}`).children].forEach((c, k) => c.style.setProperty('--i', Math.min(k, 8)));
   const navKey = viewName.startsWith('make') ? 'make' : viewName;
   document.querySelectorAll('.top nav a').forEach((a) => {
     if (a.dataset.nav === navKey) a.setAttribute('aria-current', 'page');
@@ -75,6 +77,7 @@ function setup() {
   setupViewer();
   setupBox();
   setupKakao();
+  watchStatusLines();
   // 홈·1단계·빈 결과의 "샘플로 해보기" / "직접 입력하기" 버튼
   document.addEventListener('click', (e) => {
     const s = e.target.closest('[data-sample]');

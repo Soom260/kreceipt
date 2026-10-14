@@ -20,9 +20,10 @@ const kindLabel = (e) => (e.kind === 'mine' ? '내 영수증' : '친구 영수�
 const friendName = (e) => (e.kind === 'mine' ? '' : e.from || e.data.n || '');
 
 // ───────── 목록 한 장 ─────────
-function itemEl(e) {
+function itemEl(e, k) {
   const li = document.createElement('li');
   li.className = 'box-item';
+  li.style.setProperty('--i', Math.min(k, 8));
   const d = e.data;
 
   const head = document.createElement('div');
@@ -176,6 +177,7 @@ export function renderBox({ keepFocus, reset } = {}) {
   const state = $('box-state');
   const list = $('box-list');
   document.querySelectorAll('#view-box .tab').forEach((t) => t.setAttribute('aria-pressed', String(t.dataset.filter === filter)));
+  document.querySelector('#view-box .tabs').dataset.active = filter; // 흰 알약이 고른 탭으로 미끄러진다
 
   const all = loadBox();
   if (all === null) {

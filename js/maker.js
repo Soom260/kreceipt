@@ -2,7 +2,7 @@
 // 1 가져오기(캡처·샘플·직접 입력) → 2 확인하고 고르기 → 3 한마디와 노래 → 4 완성·공유
 
 import { LIMITS } from './config.js';
-import { showLoading, updateLoading, showEmpty, showError, clearState, reportState } from './states.js';
+import { showLoading, updateLoading, showEmpty, showError, clearState, reportState, confetti } from './states.js';
 import { checkFile, checkName, parseAmount, checkTime, normalizeTime, checkMessage, checkNick, checkSelection, setFieldError, clearFieldError, showBlockError, charCount } from './validate.js';
 import { recognizeImage } from './ocr.js';
 import { parseTransactions } from './parse.js';
@@ -135,11 +135,17 @@ export function takeFocusTarget() {
 
 function setupStep1() {
   const file = $('capture-file');
-  file.addEventListener('change', () => clearFieldError(file));
+  // 고른 파일 이름을 상자에 보여 준다
+  file.addEventListener('change', () => {
+    clearFieldError(file);
+    const f = file.files[0];
+    $('capture-name').textContent = f ? f.name : '캡처 이미지 고르기';
+    file.closest('.upload').classList.toggle('has-file', !!f);
+  });
   $('capture-read').addEventListener('click', () => {
     const f = file.files[0];
     const msg = checkFile(f);
-    if (msg) { setFieldError(file, msg); return; }
+    if (msg) { setFieldError(file, msg, { after: $('capture-label') }); return; }
     clearFieldError(file);
     runOcr(f);
   });
@@ -158,6 +164,7 @@ function rowEl(r, idx) {
   const li = document.createElement('li');
   li.className = 'tx' + (r.checked ? ' is-checked' : '');
   li.dataset.id = r.id;
+  li.style.setProperty('--i', Math.min(idx, 10)); // 차례로 떠오르는 모션 순서
 
   const ck = document.createElement('label');
   ck.className = 'tx__check';
@@ -348,6 +355,7 @@ function toStep4() {
   draft.saveResult = result;
   draft.data = data;
   draft.code = code;
+  draft.celebrate = true; // 새로 만든 때만 축하 효과
   location.hash = '#make-4';
 }
 
@@ -384,6 +392,7 @@ function renderStep4() {
   $('share-status').textContent = '';
   $('manual-copy').hidden = true;
   reportState('완성된 영수증', 'ok');
+  if (draft.celebrate) { draft.celebrate = false; setTimeout(() => confetti(), 900); }
 }
 
 function setupStep4() {

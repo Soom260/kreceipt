@@ -3,7 +3,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>kreceipt — 영수증으로 쓰는 하루 기록</title>
 <meta name="description" content="오늘의 결제내역 몇 개에 한마디와 노래 한 곡을 붙여 영수증 한 장으로 만들고, 링크로 친구에게 보내요.">
 <!-- 링크 미리보기(공통). 영수증마다 다르게 만들 수는 없다. -->
@@ -14,15 +14,37 @@
 <meta property="og:image" content="https://soom260.github.io/kreceipt/assets/og.png">
 <meta property="og:url" content="https://soom260.github.io/kreceipt/">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="theme-color" content="#eef3f8">
+<meta name="theme-color" content="#f7f4f4">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- 영수증·로고 글꼴 (그대로 유지): IBM Plex Mono + Gothic A1 -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="css/style.css">
+<!-- 본문 글꼴 Pretendard 1.3.9 (SIL OFL) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="css/style.css?v=202610141647">
 <!-- 링크 압축 라이브러리 (버전 고정 + 무결성 확인) -->
 <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js" integrity="sha384-0d+Gr7vM4Drod8E3hXKgciWJSWbjD/opKLLygI9ktiWbuvlDwQLzU46wJ9s5gsp7" crossorigin="anonymous"></script>
-<script type="module" src="js/app.js"></script>
+<!-- 새로 올릴 때마다 v= 값을 바꾸면 휴대전화가 옛 파일 대신 새 파일을 받는다 (tools/bump-version.mjs) -->
+<script type="importmap">
+{ "imports": {
+  "./js/app.js": "./js/app.js?v=202610141647",
+  "./js/box.js": "./js/box.js?v=202610141647",
+  "./js/config.js": "./js/config.js?v=202610141647",
+  "./js/image.js": "./js/image.js?v=202610141647",
+  "./js/maker.js": "./js/maker.js?v=202610141647",
+  "./js/music.js": "./js/music.js?v=202610141647",
+  "./js/ocr.js": "./js/ocr.js?v=202610141647",
+  "./js/parse.js": "./js/parse.js?v=202610141647",
+  "./js/receipt.js": "./js/receipt.js?v=202610141647",
+  "./js/share.js": "./js/share.js?v=202610141647",
+  "./js/states.js": "./js/states.js?v=202610141647",
+  "./js/storage.js": "./js/storage.js?v=202610141647",
+  "./js/validate.js": "./js/validate.js?v=202610141647",
+  "./js/viewer.js": "./js/viewer.js?v=202610141647"
+} }
+</script>
+<script type="module" src="./js/app.js?v=202610141647"></script>
 </head>
 <body>
 
@@ -49,48 +71,64 @@
   <!-- ───────── 홈 ───────── -->
   <section class="view" id="view-home" data-view="home" hidden aria-labelledby="home-title">
     <div class="hero">
-      <p class="eyebrow">KRECEIPT · 영수증으로 쓰는 하루 기록</p>
-      <h1 id="home-title" tabindex="-1">오늘 쓴 것 몇 개로<br>하루를 나눠요</h1>
-      <p class="lead">결제내역 캡처를 올리면 가게 이름과 금액을 읽어 와요. 몇 개를 고르고 한마디와 노래 한 곡을 붙이면 영수증 한 장이 돼요. 링크로 친구에게 보내 보세요.</p>
-      <div class="stack-btns">
-        <button type="button" class="btn btn--primary" data-sample="1">샘플 캡처로 해보기</button>
-        <a class="btn" href="#make-1">내 캡처로 만들기</a>
-        <button type="button" class="btn btn--ghost" data-manual>직접 입력하기</button>
+      <div class="hero-art" aria-hidden="true">
+        <span class="blob blob--1"></span><span class="blob blob--2"></span><span class="blob blob--3"></span>
+        <div class="mini-receipt">
+          <b>KRECEIPT</b><small>TODAY · WED</small><hr>
+          <p><span>아메리카노 ×2</span><span>9,000</span></p>
+          <p><span>김밥</span><span>3,500</span></p>
+          <p><span>버스</span><span>1,500</span></p><hr>
+          <p class="mini-receipt__t"><span>TOTAL</span><span>14,000</span></p>
+          <em>— 오늘도 잘 썼다</em>
+          <i class="mini-receipt__bc"></i>
+        </div>
+        <span class="float-chip float-chip--1">🎵 오늘의 노래</span>
+        <span class="float-chip float-chip--2">💌 링크로 보내기</span>
+        <span class="float-chip float-chip--3">📅 보관함 달력</span>
       </div>
-      <p class="note">캡처는 이 브라우저 안에서만 읽고 어디에도 올리지 않아요. 가게 이름·금액·시간만 가져와요.</p>
+      <p class="eyebrow">영수증으로 쓰는 하루 기록</p>
+      <h1 id="home-title" tabindex="-1">오늘 쓴 것 몇 개로<br>하루를 나눠요</h1>
+      <p class="lead">결제내역 캡처를 올리면 가게 이름과 금액을 읽어 와요. 몇 개를 고르고 한마디와 노래를 붙이면 영수증 한 장. 링크로 친구에게 보내 보세요.</p>
     </div>
-    <ol class="how">
-      <li><span class="how__n">1</span>결제내역 캡처 올리기</li>
-      <li><span class="how__n">2</span>보여 줄 항목 고르기</li>
-      <li><span class="how__n">3</span>한마디·노래 붙이기</li>
-      <li><span class="how__n">4</span>링크로 보내기</li>
-    </ol>
+    <div class="stack-btns">
+      <button type="button" class="btn btn--primary btn--block" data-sample="1">샘플 캡처로 해보기</button>
+      <a class="btn btn--block" href="#make-1">내 캡처로 만들기</a>
+      <button type="button" class="btn btn--text" data-manual>캡처 없이 직접 입력하기</button>
+    </div>
+    <ul class="feature-list">
+      <li><span class="feature-list__icon" aria-hidden="true">📸</span><span><b>캡처 한 장이면 충분해요</b><small>가게 이름·금액·시간만 읽고, 캡처는 어디에도 올리지 않아요</small></span></li>
+      <li><span class="feature-list__icon" aria-hidden="true">✅</span><span><b>보여 줄 것만 골라요</b><small>잔액이나 계좌는 영수증에 들어가지 않아요</small></span></li>
+      <li><span class="feature-list__icon" aria-hidden="true">🎵</span><span><b>한마디와 오늘의 노래</b><small>30초 미리듣기와 함께 보내요</small></span></li>
+      <li><span class="feature-list__icon" aria-hidden="true">💌</span><span><b>링크로 나누고 보관해요</b><small>받은 영수증은 달력 보관함에 모여요</small></span></li>
+    </ul>
   </section>
 
   <!-- ───────── 만들기 1: 가져오기 ───────── -->
   <section class="view" id="view-make-1" data-view="make-1" hidden aria-labelledby="m1-title">
-    <p class="stepper">1 / 4 · 가져오기</p>
+    <div class="stepper" style="--from:0%;--to:25%">
+      <div class="stepper__bar" aria-hidden="true"><i></i></div>
+      <p class="stepper__label">1 / 4 · 가져오기</p>
+    </div>
     <h1 id="m1-title" tabindex="-1">결제내역 가져오기</h1>
     <p class="lead">결제내역 앱 화면을 캡처해서 올려 주세요. 은행·카드 앱의 거래 목록 화면이면 돼요.</p>
 
-    <div class="card">
-      <div class="field">
-        <label for="capture-file" class="label">캡처 이미지</label>
-        <p class="hint" id="capture-hint">PNG·JPG·WEBP, 10MB 이하. 이미지는 올라가지 않고 이 브라우저 안에서만 읽어요.</p>
-        <input type="file" id="capture-file" class="file-input" accept="image/png,image/jpeg,image/webp" aria-describedby="capture-hint">
-      </div>
-      <div class="row-btns">
-        <button type="button" class="btn btn--primary" id="capture-read">이 캡처 읽기</button>
-      </div>
+    <div class="upload">
+      <input type="file" id="capture-file" class="upload__input" accept="image/png,image/jpeg,image/webp" aria-describedby="capture-hint">
+      <label for="capture-file" class="upload__box" id="capture-label">
+        <span class="upload__icon" aria-hidden="true">📷</span>
+        <span class="upload__title" id="capture-name">캡처 이미지 고르기</span>
+        <span class="upload__sub" id="capture-hint">PNG·JPG·WEBP, 10MB 이하 · 이 브라우저 안에서만 읽어요</span>
+      </label>
     </div>
+    <button type="button" class="btn btn--primary btn--block" id="capture-read">이 캡처 읽기</button>
 
     <div class="divider"><span>또는</span></div>
 
-    <div class="stack-btns">
-      <button type="button" class="btn" data-sample="1">샘플 캡처로 해보기 (하루치)</button>
-      <button type="button" class="btn" data-sample="2">샘플 캡처로 해보기 (이틀치 섞임)</button>
-      <button type="button" class="btn btn--ghost" data-manual>캡처 없이 직접 입력하기</button>
-    </div>
+    <ul class="menu-list">
+      <li><button type="button" class="menu-item" data-sample="1"><span class="menu-item__icon" aria-hidden="true">🧾</span><span class="menu-item__text"><b>샘플 캡처로 해보기</b><small>하루치 · 가상 데이터</small></span><span class="menu-item__chev" aria-hidden="true">›</span></button></li>
+      <li><button type="button" class="menu-item" data-sample="2"><span class="menu-item__icon" aria-hidden="true">🗓️</span><span class="menu-item__text"><b>샘플 캡처로 해보기 (이틀치)</b><small>날짜가 섞인 화면 · 가상 데이터</small></span><span class="menu-item__chev" aria-hidden="true">›</span></button></li>
+      <li><button type="button" class="menu-item" data-manual><span class="menu-item__icon" aria-hidden="true">✍️</span><span class="menu-item__text"><b>캡처 없이 직접 입력하기</b><small>가게 이름과 금액을 바로 적어요</small></span><span class="menu-item__chev" aria-hidden="true">›</span></button></li>
+    </ul>
 
     <div class="sample-preview" id="sample-preview" hidden>
       <img id="sample-preview-img" alt="">
@@ -103,11 +141,14 @@
 
   <!-- ───────── 만들기 2: 확인·고르기 ───────── -->
   <section class="view" id="view-make-2" data-view="make-2" hidden aria-labelledby="m2-title">
-    <p class="stepper">2 / 4 · 확인하고 고르기</p>
+    <div class="stepper" style="--from:25%;--to:50%">
+      <div class="stepper__bar" aria-hidden="true"><i></i></div>
+      <p class="stepper__label">2 / 4 · 확인하고 고르기</p>
+    </div>
     <h1 id="m2-title" tabindex="-1">확인하고 고르기</h1>
     <p class="lead">글자를 잘못 읽었을 수 있어요. 고쳐 주시고, 영수증에 넣을 항목에 체크해 주세요.</p>
 
-    <div class="field">
+    <div class="field card">
       <label for="day-date" class="label">어느 날의 영수증인가요?</label>
       <input type="date" id="day-date" class="input input--date">
       <p class="hint" id="day-note" role="status" aria-live="polite"></p>
@@ -121,42 +162,43 @@
     </fieldset>
     <p class="field-error" id="rows-error" hidden></p>
 
-    <div class="row-btns">
-      <button type="button" class="btn btn--ghost" id="row-add">+ 항목 추가</button>
-    </div>
+    <button type="button" class="add-row" id="row-add"><span aria-hidden="true">＋</span> 항목 추가</button>
 
-    <div class="nav-btns">
-      <a class="btn btn--ghost" href="#make-1">이전</a>
+    <div class="cta">
+      <a class="btn btn--soft" href="#make-1">이전</a>
       <button type="button" class="btn btn--primary" id="to-step3">다음</button>
     </div>
   </section>
 
   <!-- ───────── 만들기 3: 한마디·노래 ───────── -->
   <section class="view" id="view-make-3" data-view="make-3" hidden aria-labelledby="m3-title">
-    <p class="stepper">3 / 4 · 한마디와 노래</p>
+    <div class="stepper" style="--from:50%;--to:75%">
+      <div class="stepper__bar" aria-hidden="true"><i></i></div>
+      <p class="stepper__label">3 / 4 · 한마디와 노래</p>
+    </div>
     <h1 id="m3-title" tabindex="-1">한마디와 노래</h1>
     <p class="lead">둘 다 비워 둬도 괜찮아요.</p>
 
-    <div class="field">
+    <div class="field card">
       <label for="nick" class="label">보내는 사람 이름 <span class="opt">(선택)</span></label>
       <p class="hint" id="nick-hint">10자까지. 이 브라우저에만 기억해 둬요.</p>
       <input type="text" id="nick" class="input" autocomplete="nickname" aria-describedby="nick-hint">
     </div>
 
-    <div class="field">
+    <div class="field card">
       <label for="message" class="label">오늘의 한마디 <span class="opt">(선택)</span></label>
       <p class="hint" id="message-hint">예: 오늘도 잘 썼다</p>
       <textarea id="message" class="input" rows="2" aria-describedby="message-hint message-count"></textarea>
       <p class="counter" id="message-count" aria-live="polite">0 / 60</p>
     </div>
 
-    <div class="field">
+    <div class="field card">
       <label for="song-q" class="label">오늘의 노래 <span class="opt">(선택)</span></label>
       <p class="hint" id="song-hint">곡명이나 가수를 2자 이상 적으면 찾아 줘요.</p>
       <!-- 휴대전화 키보드의 "검색" 키로도 찾을 수 있게 form 으로 감싼다 -->
       <form class="song-form" id="song-form" role="search" action="#" novalidate>
         <input type="search" id="song-q" class="input" autocomplete="off" enterkeyhint="search" aria-describedby="song-hint" aria-controls="song-results">
-        <button type="submit" class="btn btn--small" id="song-go">찾기</button>
+        <button type="submit" class="btn btn--primary btn--small" id="song-go">찾기</button>
       </form>
       <div class="picked" id="song-picked" hidden></div>
       <div class="state-box" id="song-state" aria-live="polite"></div>
@@ -165,23 +207,26 @@
     </div>
 
     <p class="field-error" id="make-error" hidden></p>
-    <div class="nav-btns">
-      <a class="btn btn--ghost" href="#make-2">이전</a>
+    <div class="cta">
+      <a class="btn btn--soft" href="#make-2">이전</a>
       <button type="button" class="btn btn--primary" id="to-step4">영수증 만들기</button>
     </div>
   </section>
 
   <!-- ───────── 만들기 4: 완성·공유 ───────── -->
   <section class="view" id="view-make-4" data-view="make-4" hidden aria-labelledby="m4-title">
-    <p class="stepper">4 / 4 · 보내기</p>
+    <div class="stepper" style="--from:75%;--to:100%">
+      <div class="stepper__bar" aria-hidden="true"><i></i></div>
+      <p class="stepper__label">4 / 4 · 보내기</p>
+    </div>
     <h1 id="m4-title" tabindex="-1">영수증이 나왔어요</h1>
     <div class="receipt-stage" id="my-receipt"></div>
     <p class="status-line" id="my-save-status" role="status" aria-live="polite"></p>
 
     <div class="share">
       <div class="stack-btns">
-        <button type="button" class="btn btn--primary" id="share-link">링크 보내기</button>
-        <button type="button" class="btn" id="save-image">이미지로 저장</button>
+        <button type="button" class="btn btn--primary btn--block" id="share-link"><span aria-hidden="true">💌</span> 링크 보내기</button>
+        <button type="button" class="btn btn--block" id="save-image"><span aria-hidden="true">🖼️</span> 이미지로 저장</button>
       </div>
       <p class="note">이 링크를 받은 사람은 누구나 이 영수증을 볼 수 있어요.</p>
       <p class="status-line" id="share-status" role="status" aria-live="polite"></p>
@@ -191,10 +236,10 @@
       </div>
     </div>
 
-    <div class="nav-btns">
-      <a class="btn btn--ghost" href="#make-3">고치기</a>
-      <a class="btn btn--ghost" href="#box">보관함 보기</a>
-      <button type="button" class="btn btn--ghost" id="new-receipt">새로 만들기</button>
+    <div class="chip-row">
+      <a class="btn btn--soft btn--small" href="#make-3">고치기</a>
+      <a class="btn btn--soft btn--small" href="#box">보관함 보기</a>
+      <button type="button" class="btn btn--soft btn--small" id="new-receipt">새로 만들기</button>
     </div>
   </section>
 
@@ -204,15 +249,15 @@
     <div class="state-box" id="read-state" aria-live="polite"></div>
     <div id="read-body" hidden>
       <div class="receipt-stage" id="read-receipt"></div>
-      <div class="field" id="from-field">
+      <div class="field card" id="from-field">
         <label for="from-name" class="label">누구의 영수증인가요? <span class="opt">(선택)</span></label>
         <p class="hint" id="from-hint">보관함에서 이 이름으로 보여요. 내 보관함에만 저장돼요. 10자까지.</p>
         <input type="text" id="from-name" class="input" autocomplete="off" aria-describedby="from-hint">
       </div>
       <div class="stack-btns">
-        <button type="button" class="btn btn--primary" id="keep-btn">보관하기</button>
-        <button type="button" class="btn" id="read-image">이미지로 저장</button>
-        <a class="btn btn--ghost" href="#make-1">내 영수증 만들기</a>
+        <button type="button" class="btn btn--primary btn--block" id="keep-btn">보관하기</button>
+        <button type="button" class="btn btn--block" id="read-image">이미지로 저장</button>
+        <a class="btn btn--text" href="#make-1">나도 영수증 만들기</a>
       </div>
       <p class="status-line" id="keep-status" role="status" aria-live="polite"></p>
     </div>
@@ -223,7 +268,8 @@
     <h1 id="box-title" tabindex="-1">보관함</h1>
     <p class="lead">이 브라우저에만 보관돼요. 브라우저 데이터를 지우면 사라지니 가끔 파일로 내보내 두세요.</p>
 
-    <div class="tabs" role="group" aria-label="보관함 보기 방식">
+    <div class="tabs" role="group" aria-label="보관함 보기 방식" data-active="all">
+      <span class="tabs__pill" aria-hidden="true"></span>
       <button type="button" class="tab" data-filter="all" aria-pressed="true">전체</button>
       <button type="button" class="tab" data-filter="mine" aria-pressed="false">내 영수증</button>
       <button type="button" class="tab" data-filter="received" aria-pressed="false">친구 영수증</button>
@@ -244,7 +290,7 @@
     <details class="backup">
       <summary>보관함 파일로 내보내기 · 가져오기</summary>
       <div class="backup__inner">
-        <button type="button" class="btn" id="export-btn">파일로 내보내기 (.json)</button>
+        <button type="button" class="btn btn--block" id="export-btn">파일로 내보내기 (.json)</button>
         <div class="field">
           <label for="import-file" class="label">파일에서 가져오기</label>
           <p class="hint" id="import-hint">kreceipt에서 내보낸 .json 파일만 가져올 수 있어요.</p>
@@ -268,10 +314,13 @@
   <p class="hint">이미지를 길게 누른 뒤 "이미지 다운로드"(안드로이드) 또는 "사진에 저장"(아이폰)을 고르세요.</p>
   <img id="img-dialog-img" alt="저장할 영수증 이미지">
   <div class="row-btns">
-    <a class="btn btn--ghost" id="img-dialog-download" download>파일로 내려받기</a>
+    <a class="btn btn--soft" id="img-dialog-download" download>파일로 내려받기</a>
     <button type="button" class="btn btn--primary" id="img-dialog-close">닫기</button>
   </div>
 </dialog>
+
+<!-- 아래에서 올라오는 알림. 화면낭독기는 각 화면의 상태 문장(role=status)을 읽으므로 여기는 숨긴다 -->
+<div class="toast" id="toast" aria-hidden="true"></div>
 
 <!-- ?debug=1 일 때만 보이는 "지금 화면 상태" 칩 -->
 <div class="debug-chip" id="debug-chip" hidden aria-hidden="true"></div>

@@ -1,5 +1,6 @@
 // 영수증 한 장을 그리는 파일. 링크에서 꺼낸 데이터(v1 모양)를 받아 HTML 요소로 만든다.
 // 노래 블록 자리만 만들어 두고, 노래 정보 채우기는 music.js 가 한다.
+// 모양은 개인 홈페이지 kreceipt 카드 그대로. 화면에 나올 때 인쇄되듯 나오고 합계 숫자가 올라간다.
 
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
@@ -47,8 +48,9 @@ function barcode(seedText) {
 }
 
 // data: 링크 모양 영수증. 돌려주는 값: 영수증 요소 (노래 자리는 .receipt__song-slot)
-export function renderReceipt(data, { flat = false } = {}) {
-  const r = el('article', 'receipt' + (flat ? ' receipt--flat' : ''));
+export function renderReceipt(data, { flat = false, animate = true } = {}) {
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const r = el('article', 'receipt' + (flat ? ' receipt--flat' : '') + (animate && !reduce ? ' is-printing' : ''));
   const total = totalOf(data);
   r.setAttribute('aria-label', `${data.d} 영수증, 항목 ${data.i.length}개, 합계 ${formatWon(total)}원`);
 
@@ -70,8 +72,10 @@ export function renderReceipt(data, { flat = false } = {}) {
 
   r.append(el('hr', 'receipt__rule'));
   const tot = el('div', 'receipt__total');
-  tot.append(el('span', '', 'TOTAL'), el('span', '', formatWon(total)));
+  const totNum = el('span', '', formatWon(total));
+  tot.append(el('span', '', 'TOTAL'), totNum);
   r.append(tot);
+  if (animate && !reduce) countUp(totNum, total);
 
   if (data.m) r.append(el('p', 'receipt__note', `— ${data.m}`));
   if (data.n) r.append(el('p', 'receipt__from', `FROM ${data.n}`));
@@ -80,5 +84,23 @@ export function renderReceipt(data, { flat = false } = {}) {
     r.append(slot);
   }
   r.append(barcode(JSON.stringify(data)));
+  // 줄이 위에서부터 차례로 나타나도록 순서 번호를 붙인다
+  [...r.children].forEach((c, k) => c.style.setProperty('--ri', k));
+  // 인쇄 모션이 끝나면 표시를 지운다 (이미지 저장 때 모션이 섞이지 않게)
+  if (r.classList.contains('is-printing')) setTimeout(() => r.classList.remove('is-printing'), 6500);
   return r;
+}
+
+// 합계 숫자가 0부터 올라간다 (화면낭독기는 영수증 전체 설명(aria-label)을 읽는다)
+function countUp(node, total) {
+  node.textContent = formatWon(0);
+  const start = performance.now() + 700;
+  const dur = 900;
+  const step = (now) => {
+    const t = Math.min(1, Math.max(0, (now - start) / dur));
+    const eased = 1 - Math.pow(1 - t, 3);
+    node.textContent = formatWon(Math.round(total * eased));
+    if (t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }

@@ -108,3 +108,54 @@ export function clearState(box, where) {
   box.replaceChildren();
   if (where) reportState(where, 'ok');
 }
+
+// ───────── 토스트·축하 효과 (눈으로 보는 효과. 화면낭독기는 각 화면의 상태 문장을 읽는다) ─────────
+export const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+let toastTimer = null;
+export function showToast(msg) {
+  const t = document.getElementById('toast');
+  if (!t || !msg) return;
+  t.textContent = msg;
+  t.classList.remove('is-on');
+  void t.offsetWidth; // 같은 알림이 연달아 와도 다시 올라오게
+  t.classList.add('is-on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('is-on'), 2600);
+}
+
+// 성공 안내(.status-line, 오류가 아닌 것)가 바뀌면 토스트로도 띄운다
+export function watchStatusLines() {
+  const obs = new MutationObserver((list) => {
+    const seen = new Set();
+    list.forEach((m) => {
+      const el = m.target.nodeType === 1 ? m.target : m.target.parentElement;
+      if (!el || seen.has(el)) return;
+      seen.add(el);
+      if (!el.classList.contains('is-error') && el.textContent.trim()) showToast(el.textContent.trim());
+    });
+  });
+  document.querySelectorAll('.status-line').forEach((el) => obs.observe(el, { childList: true, characterData: true, subtree: true }));
+}
+
+// 연분홍 종이 조각이 흩날리는 축하 효과
+const CONFETTI = ['#f1dede', '#e8cccd', '#f4dbdb', '#fbe9dc', '#e9e3f6', '#dcb9bb', '#c99299'];
+export function confetti(count = 46) {
+  if (reduceMotion()) return;
+  const box = document.createElement('div');
+  box.className = 'confetti';
+  box.setAttribute('aria-hidden', 'true');
+  for (let k = 0; k < count; k++) {
+    const i = document.createElement('i');
+    i.style.left = `${Math.random() * 100}%`;
+    i.style.background = CONFETTI[k % CONFETTI.length];
+    i.style.setProperty('--x', `${(Math.random() - 0.5) * 160}px`);
+    i.style.setProperty('--r', `${(Math.random() * 2 - 1) * 720}deg`);
+    i.style.setProperty('--d', `${1.4 + Math.random() * 1.2}s`);
+    i.style.setProperty('--delay', `${Math.random() * 0.35}s`);
+    if (k % 3 === 0) { i.style.width = '8px'; i.style.height = '8px'; i.style.borderRadius = '50%'; }
+    box.append(i);
+  }
+  document.body.append(box);
+  setTimeout(() => box.remove(), 3200);
+}
