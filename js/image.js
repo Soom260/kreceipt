@@ -22,13 +22,13 @@ const noImgFilter = (node) => baseFilter(node) && node.tagName !== 'IMG';
 
 const BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
-// 결과: 'saved' | 'saved-no-cover' | 'failed'
-export async function saveReceiptImage(receiptEl, filename) {
+// 영수증 요소 → PNG 데이터 주소. 결과: { url, noCover } 또는 null(실패)
+export async function makeReceiptImage(receiptEl) {
   let lib;
   try {
     lib = await loadLib();
   } catch (e) {
-    return 'failed';
+    return null;
   }
   const opts = {
     pixelRatio: 2,
@@ -37,29 +37,28 @@ export async function saveReceiptImage(receiptEl, filename) {
     imagePlaceholder: BLANK,
     style: { transform: 'none', boxShadow: 'none', margin: '0' },
   };
-  let status = 'saved';
-  let url;
   // 이미지 안에서는 웹글꼴 대신 기기 글꼴로 그려지므로, 화면도 잠깐 같은 글꼴로 바꿔 줄바꿈 위치를 맞춘다
   receiptEl.classList.add('receipt--export');
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   try {
-    url = await lib.toPng(receiptEl, { ...opts, filter: baseFilter });
+    return { url: await lib.toPng(receiptEl, { ...opts, filter: baseFilter }), noCover: false };
   } catch (e) {
     try {
-      url = await lib.toPng(receiptEl, { ...opts, filter: noImgFilter });
-      status = 'saved-no-cover';
+      return { url: await lib.toPng(receiptEl, { ...opts, filter: noImgFilter }), noCover: true };
     } catch (e2) {
-      status = 'failed';
+      return null;
     }
   } finally {
     receiptEl.classList.remove('receipt--export');
   }
-  if (status === 'failed') return status;
+}
+
+// PC: 파일로 내려받기
+export function downloadImage(url, filename) {
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
   document.body.append(a);
   a.click();
   a.remove();
-  return status;
 }

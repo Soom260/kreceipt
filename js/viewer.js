@@ -92,6 +92,6 @@ export function setupViewer() {
     setKeepButton(findInBox(current.code));
   });
   $('read-image').addEventListener('click', () => {
-    if (current) saveImage($('read-receipt').querySelector('.receipt'), current.data.d, $('keep-status'));
+    if (current) saveImage($('read-receipt').querySelector('.receipt'), current.data.d, $('keep-status'), $('read-image'));
   });
 }

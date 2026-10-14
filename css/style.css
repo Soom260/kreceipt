@@ -158,8 +158,9 @@ textarea.input { resize: vertical; }
 .tx__check { display: flex; align-items: flex-start; justify-content: center; padding-top: 0.55rem; }
 .tx__check input { width: 24px; height: 24px; accent-color: var(--accent); cursor: pointer; }
 .tx__fields { min-width: 0; display: flex; flex-direction: column; gap: 0.4rem; }
-.tx__line { display: flex; gap: 0.4rem; align-items: flex-start; min-width: 0; }
-.tx__line > .tx__cell { flex: 1 1 0; min-width: 0; }
+.tx__line { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 0.4rem; align-items: start; min-width: 0; }
+.tx__line > .tx__cell { min-width: 0; }
+.tx__cell--time .input { font-family: var(--mono); text-align: center; }
 /* 시간 입력칸은 휴대전화에서 기본 폭이 커서 옆 칸과 겹치므로 폭을 칸에 맞춘다 */
 .tx .input { min-width: 0; width: 100%; }
 .tx .input { min-height: 44px; padding: 0.45rem 0.6rem; }
@@ -272,10 +273,10 @@ textarea.input { resize: vertical; }
 .box-item__who { font-weight: 700; }
 .badge { display: inline-block; font-size: 0.75rem; font-weight: 700; padding: 0.1rem 0.55rem; border-radius: 999px; }
 .badge--mine { background: #dbeafe; color: #1e40af; }
-.badge--friend { background: #fce7f3; color: #9d174d; }
+.badge--friend { background: #f4dbdb; color: #8a3443; }
 
 /* 보관함 달력 */
-:root { --friend: #e0558f; }  /* 친구 영수증 하트 (흰 바탕 대비 약 3.5:1) */
+:root { --friend: #f4dbdb; --friend-line: #e2aab3; }  /* 친구 영수증 연분홍 점 (옅어서 테두리를 살짝 둠) */
 .cal { background: var(--card); border-radius: 20px; padding: 0.8rem 0.6rem 0.6rem; margin: 0.75rem 0 0.4rem; box-shadow: 0 6px 18px -12px rgba(30,64,120,.35); }
 .cal__head { display: flex; align-items: center; justify-content: space-between; padding: 0 0.2rem 0.4rem; }
 .cal__title { font-size: 1.05rem; margin: 0; font-weight: 700; }
@@ -300,11 +301,12 @@ textarea.input { resize: vertical; }
 .cal__note { font-size: 0.78rem; color: var(--muted); text-align: right; margin: 0.3rem 0.3rem 0; }
 .mark { display: inline-block; vertical-align: middle; }
 .mark--mine { width: 7px; height: 7px; border-radius: 50%; background: var(--point); }
-.mark--friend { color: var(--friend); font-size: 11px; line-height: 1; }
+.mark--friend { width: 7px; height: 7px; border-radius: 50%; background: var(--friend); box-shadow: inset 0 0 0 1px var(--friend-line); }
 .cal__day[aria-pressed="true"] .mark--mine { background: #93c5fd; }
-.cal__day[aria-pressed="true"] .mark--friend { color: #f9a8d4; }
+.cal__day[aria-pressed="true"] .mark--friend { box-shadow: none; }
 .cal-legend { font-size: 0.78rem; color: var(--muted); display: flex; align-items: center; gap: 0.35rem; margin: 0 0.3rem 0.6rem; }
 .cal-legend .mark--friend { margin-left: 0.6rem; }
+.cal-legend .mark { width: 9px; height: 9px; }
 .list-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 0.8rem; }
 .list-head__title { font-size: 1.05rem; margin: 0; }
 .list-head__title:focus { outline: none; }
@@ -318,6 +320,14 @@ textarea.input { resize: vertical; }
 /* ───────── 공유 ───────── */
 .share { margin-top: 0.5rem; }
 .manual-copy { margin-top: 0.75rem; }
+
+/* ───────── 이미지 저장 창(휴대전화) ───────── */
+.img-dialog { border: 0; border-radius: 18px; padding: 1rem; width: min(420px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; background: var(--card); color: var(--ink); }
+.img-dialog::backdrop { background: rgba(15, 23, 42, 0.6); }
+.img-dialog h2 { font-size: 1.05rem; margin: 0 0 0.3rem; }
+.img-dialog img { display: block; width: 100%; height: auto; margin: 0.6rem 0; border: 1px solid var(--line); border-radius: 6px;
+  -webkit-touch-callout: default; user-select: auto; }   /* 꾹 누르기 메뉴가 뜨게 */
+.img-dialog .row-btns { justify-content: flex-end; margin-bottom: 0; }
 
 /* ───────── 카카오 안내 ───────── */
 .kakao-banner { background: #fff7d6; border-bottom: 1px solid #ecd98a; padding: 0.75rem 16px; font-size: 0.9rem; }

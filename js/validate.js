@@ -42,6 +42,19 @@ export function parseAmount(raw) {
   return { msg: '', value };
 }
 
+// 시간(선택): 비워 두거나 "14:30" / "1430" / "9:05" 모양. 맞으면 "HH:MM", 틀리면 null
+export function normalizeTime(v) {
+  const t = String(v || '').trim();
+  if (!t) return '';
+  const m = t.match(/^(\d{1,2}):?(\d{2})$/);
+  if (!m || +m[1] > 23 || +m[2] > 59) return null;
+  return `${m[1].padStart(2, '0')}:${m[2]}`;
+}
+
+export function checkTime(v) {
+  return normalizeTime(v) === null ? '시간은 14:30처럼 적어 주세요. 비워 둬도 돼요.' : '';
+}
+
 export function checkMessage(v) {
   const n = charCount(v);
   if (n > LIMITS.messageMax) return `한마디는 ${LIMITS.messageMax}자까지 쓸 수 있어요. 지금 ${n}자입니다.`;

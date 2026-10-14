@@ -268,6 +268,50 @@ const shot = (page, name) => page.screenshot({ path: `out/${name}.png`, fullPage
   await p.context().close();
 }
 
+// 14) 휴대전화 흉내(터치·모바일): 시간 칸이 화면 안에, 잘못된 시간 안내, fetch 가 막혀도 노래 검색(JSONP), 이미지 저장 창
+{
+  const { devices } = await import('playwright');
+  const ctx = await browser.newContext({ ...devices['Pixel 7'], viewport: { width: 360, height: 780 } });
+  const p = await ctx.newPage();
+  p.on('pageerror', (e) => record('페이지 오류 없음(모바일)', false, e.message));
+  // fetch 로 가는 iTunes 요청만 막는다 (폰에서 fetch 만 막히는 상황 흉내)
+  await p.route('**/itunes.apple.com/**', (route) => (route.request().resourceType() === 'fetch' ? route.abort('failed') : route.continue()));
+  await p.goto(BASE + '#home');
+  await p.tap('#view-home [data-manual]');
+  await p.waitForSelector('#rows .tx');
+  const r = await p.evaluate(() => {
+    const t = document.querySelector('#rows .tx__cell--time input').getBoundingClientRect();
+    const main = document.querySelector('main').getBoundingClientRect();
+    return { right: Math.round(t.right), mainRight: Math.round(main.right), vw: innerWidth };
+  });
+  record('모바일: 시간 칸이 화면·본문 안에 있음', r.right <= r.mainRight && r.right <= r.vw, JSON.stringify(r));
+  await p.fill('#rows .tx__cell--name input', '김밥');
+  await p.fill('#rows .tx__cell--amount input', '3500');
+  await p.fill('#rows .tx__cell--time input', '25:00');
+  await p.tap('#to-step3');
+  record('시간 "25:00": 안내·초점', await p.evaluate(() => document.activeElement.closest('.tx__cell--time') !== null && /14:30처럼/.test(document.querySelector('.tx__cell--time .field-error')?.textContent || '')));
+  await p.fill('#rows .tx__cell--time input', '1430');
+  await p.tap('#rows .tx__cell--name input'); // 칸을 떠나면 14:30 으로 맞춤
+  record('시간 "1430" → "14:30"', (await p.inputValue('#rows .tx__cell--time input')) === '14:30');
+  await p.tap('#to-step3');
+  await p.waitForURL(/#make-3/);
+  await p.fill('#song-q', 'IU');
+  await p.tap('#song-go');
+  await p.waitForSelector('#song-results .song, #song-state .state--error', { timeout: 20000 });
+  const n = await p.$$eval('#song-results .song', (e) => e.length);
+  record('fetch 가 막혀도 JSONP 로 노래 검색', n > 0, n ? `${n}곡` : await p.textContent('#song-state'));
+  if (n) await p.tap('#song-results .song .pick-btn');
+  await p.tap('#to-step4');
+  await p.waitForURL(/#make-4/);
+  await p.tap('#save-image');
+  await p.waitForSelector('#img-dialog[open] #img-dialog-img[src^="data:image/png"]', { timeout: 20000 });
+  record('모바일 이미지 저장: 꾹 눌러 저장하는 창', true, await p.textContent('#share-status'));
+  await shot(p, 'mobile-image-dialog');
+  await p.tap('#img-dialog-close');
+  record('창 닫으면 초점이 저장 버튼으로', await p.evaluate(() => !document.getElementById('img-dialog').open && document.activeElement.id === 'save-image'));
+  await ctx.close();
+}
+
 await browser.close();
 const fail = results.filter((r) => !r.ok).length;
 console.log(`\n${results.length - fail}/${results.length} 통과`);

@@ -1,5 +1,6 @@
 // "오늘의 노래" — iTunes Search API 로 노래를 찾고, 30초 미리듣기를 재생하는 파일.
 // 인증키가 필요 없는 공개 API. 브라우저에서 바로 호출된다 (2026-10-14 확인: Access-Control-Allow-Origin: *).
+// fetch 가 막히는 환경을 위해 JSONP 우회로도 둔다.
 // 호출 제한(분당 약 20회)이 있어 검색은 입력 후 잠깐 기다렸다가(디바운스) 보낸다.
 
 import { ITUNES, LIMITS, SEARCH_DEBOUNCE_MS, SIM, SIM_SLOW_MS, wait } from './config.js';
@@ -18,9 +19,8 @@ function normalize(r) {
   };
 }
 
-async function getJSON(url, signal) {
-  if (SIM.slow) await wait(SIM_SLOW_MS);
-  if (SIM.error) throw new Error('sim-error');
+// 1차: fetch 로 받기
+async function fetchJSON(url, signal) {
   const ctrl = new AbortController();
   let timedOut = false;
   const timer = setTimeout(() => { timedOut = true; ctrl.abort(); }, ITUNES.timeoutMs);
@@ -31,10 +31,44 @@ async function getJSON(url, signal) {
     return await res.json();
   } catch (e) {
     // 화면에 이유를 다르게 보여 주려고 실패 종류를 붙인다
-    if (!e.kind) e.kind = timedOut ? 'timeout' : navigator.onLine === false ? 'offline' : e.name === 'AbortError' ? 'abort' : 'network';
+    if (!e.kind) e.kind = timedOut ? 'timeout' : navigator.onLine === false ? 'offline' : signal && signal.aborted ? 'abort' : 'network';
     throw e;
   } finally {
     clearTimeout(timer);
+  }
+}
+
+// 2차: JSONP (<script> 로 받기). 일부 휴대전화 환경에서 fetch 만 막히는 경우를 대비한 우회로.
+// iTunes 가 callback 이름으로 감싼 자바스크립트를 돌려준다.
+let jsonpSeq = 0;
+function jsonp(url, signal) {
+  return new Promise((resolve, reject) => {
+    const name = `__kreceiptItunes${Date.now()}_${++jsonpSeq}`;
+    const s = document.createElement('script');
+    const done = () => { clearTimeout(timer); delete window[name]; s.remove(); };
+    const timer = setTimeout(() => { done(); reject(Object.assign(new Error('JSONP timeout'), { kind: 'timeout' })); }, ITUNES.timeoutMs);
+    window[name] = (data) => { done(); resolve(data); };
+    s.onerror = () => { done(); reject(Object.assign(new Error('JSONP load error'), { kind: 'network' })); };
+    if (signal) signal.addEventListener('abort', () => { done(); reject(Object.assign(new Error('aborted'), { name: 'AbortError', kind: 'abort' })); });
+    s.src = `${url}&callback=${name}`;
+    document.head.append(s);
+  });
+}
+
+async function getJSON(url, signal) {
+  if (SIM.slow) await wait(SIM_SLOW_MS);
+  if (SIM.error) throw Object.assign(new Error('sim-error'), { kind: 'network', detail: 'sim=error' });
+  try {
+    return await fetchJSON(url, signal);
+  } catch (e) {
+    if (!['network', 'timeout'].includes(e.kind)) throw e;
+    try {
+      return await jsonp(url, signal);
+    } catch (e2) {
+      // 두 길 모두 실패: 원인을 좁힐 수 있게 오류 내용을 함께 남긴다
+      e2.detail = `fetch: ${e.name} ${e.message} / jsonp: ${e2.message}`;
+      throw e2;
+    }
   }
 }
 
@@ -262,11 +296,11 @@ export function setupSongPicker({ form, input, stateBox, list, pickedBox, onPick
       renderResults(songs);
       list.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     } catch (e) {
-      if (my.signal.aborted && e.name === 'AbortError') return;
+      if (my.signal.aborted) return; // 새 검색이 시작돼 이전 검색을 멈춘 경우
       showError(stateBox, {
         where: '노래 검색',
         what: '노래 정보를 불러오지 못했어요.',
-        why: WHY[e.kind] || WHY.network,
+        why: (WHY[e.kind] || WHY.network) + (e.detail ? ` (오류 코드: ${e.detail})` : ''),
         todo: e.kind === 'limit' ? '1분쯤 뒤에 다시 시도해 주세요. 노래 없이 영수증을 만들어도 돼요.' : '연결을 확인하고 다시 시도해 주세요. 노래 없이 영수증을 만들어도 돼요.',
         onRetry: () => run(lastTerm),
       });

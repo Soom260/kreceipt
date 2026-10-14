@@ -3,14 +3,14 @@
 
 import { LIMITS } from './config.js';
 import { showLoading, updateLoading, showEmpty, showError, clearState, reportState } from './states.js';
-import { checkFile, checkName, parseAmount, checkMessage, checkNick, checkSelection, setFieldError, clearFieldError, showBlockError, charCount } from './validate.js';
+import { checkFile, checkName, parseAmount, checkTime, normalizeTime, checkMessage, checkNick, checkSelection, setFieldError, clearFieldError, showBlockError, charCount } from './validate.js';
 import { recognizeImage } from './ocr.js';
 import { parseTransactions } from './parse.js';
 import { setupSongPicker, fillReceiptSong, stopPreview } from './music.js';
 import { buildReceipt, encodeReceipt, linkFor, shareLink } from './share.js';
 import { addToBox, getNick, setNick } from './storage.js';
 import { renderReceipt, formatDayKo } from './receipt.js';
-import { saveReceiptImage } from './image.js';
+import { makeReceiptImage, downloadImage } from './image.js';
 
 const $ = (id) => document.getElementById(id);
 const pad = (n) => String(n).padStart(2, '0');
@@ -204,8 +204,11 @@ function rowEl(r, idx) {
   const amt = mk('tx__cell--amount', `${idx + 1}번째 항목 금액 (원)`, r.amountRaw, { type: 'text', inputmode: 'numeric', placeholder: '금액', autocomplete: 'off' });
   amt.inp.classList.add('tx__amount');
   amt.inp.addEventListener('input', () => { r.amountRaw = amt.inp.value; if (amt.inp.getAttribute('aria-invalid')) clearFieldError(amt.inp); });
-  const tm = mk('tx__cell--time', `${idx + 1}번째 항목 시간 (선택)`, r.time, { type: 'time' });
-  tm.inp.addEventListener('input', () => { r.time = tm.inp.value; });
+  // 시간은 type="time" 대신 글자 칸을 쓴다: 휴대전화의 시간 입력칸은 폭이 줄지 않아 화면 밖으로 빠져나간다
+  const tm = mk('tx__cell--time', `${idx + 1}번째 항목 시간 (선택, 예: 14:30)`, r.time, { type: 'text', inputmode: 'numeric', placeholder: '시간 14:30', autocomplete: 'off', maxlength: '5' });
+  tm.inp.addEventListener('input', () => { r.time = tm.inp.value; if (tm.inp.getAttribute('aria-invalid')) clearFieldError(tm.inp); });
+  // "1430" 처럼 적으면 칸을 떠날 때 "14:30" 으로 맞춰 준다
+  tm.inp.addEventListener('blur', () => { const t = normalizeTime(tm.inp.value); if (t !== null) { tm.inp.value = t; r.time = t; } });
 
   // 지우기 버튼은 두지 않는다: 영수증에 넣지 않을 항목은 체크만 풀면 된다
   line.append(amt.cell, tm.cell);
@@ -285,6 +288,9 @@ function toStep3() {
     if (nMsg) { setFieldError(nameInp, nMsg, { focus: false }); first = first || nameInp; } else clearFieldError(nameInp);
     const a = parseAmount(r.amountRaw);
     if (a.msg) { setFieldError(amtInp, a.msg, { focus: false }); first = first || amtInp; } else clearFieldError(amtInp);
+    const timeInp = $(`row${r.id}-tx__cell--time`);
+    const tMsg = checkTime(r.time);
+    if (tMsg) { setFieldError(timeInp, tMsg, { focus: false }); first = first || timeInp; } else clearFieldError(timeInp);
     items.push({ name: r.name.trim(), amount: a.value });
   });
   if (first) { first.focus(); return; }
@@ -399,7 +405,7 @@ function setupStep4() {
       $('manual-link').select();
     }
   });
-  $('save-image').addEventListener('click', () => saveImage($('my-receipt').querySelector('.receipt'), draft.data.d, $('share-status')));
+  $('save-image').addEventListener('click', () => saveImage($('my-receipt').querySelector('.receipt'), draft.data.d, $('share-status'), $('save-image')));
   $('new-receipt').addEventListener('click', () => {
     stopPreview();
     draft = newDraft();
@@ -413,17 +419,47 @@ function setupStep4() {
   });
 }
 
-// 이미지로 저장 (받은 영수증 화면에서도 쓴다)
-export async function saveImage(receiptEl, date, statusEl) {
+// 이미지로 저장 (친구 영수증 화면에서도 쓴다)
+// 휴대전화(손가락 터치)는 내려받기가 잘 안 돼서, 이미지를 창에 띄워 꾹 눌러 저장하게 한다.
+const isTouch = () => window.matchMedia('(pointer: coarse)').matches;
+
+export async function saveImage(receiptEl, date, statusEl, trigger) {
   statusEl.classList.remove('is-error');
   statusEl.textContent = '이미지를 만드는 중…';
-  const res = await saveReceiptImage(receiptEl, `kreceipt-${date}.png`);
-  if (res === 'saved') statusEl.textContent = '이미지를 저장했어요. 다운로드 폴더(또는 파일 앱)를 확인해 주세요.';
-  else if (res === 'saved-no-cover') statusEl.textContent = '앨범 커버를 빼고 이미지를 저장했어요.';
-  else {
+  const img = await makeReceiptImage(receiptEl);
+  if (!img) {
     statusEl.classList.add('is-error');
     statusEl.textContent = '이미지를 만들지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요. 화면 캡처로 남겨도 돼요.';
+    return;
   }
+  const filename = `kreceipt-${date}.png`;
+  const cover = img.noCover ? ' (앨범 커버는 빠졌어요)' : '';
+  if (isTouch()) {
+    openImageDialog(img.url, filename, trigger);
+    statusEl.textContent = `이미지를 띄웠어요. 꾹 눌러 저장해 주세요.${cover}`;
+  } else {
+    downloadImage(img.url, filename);
+    statusEl.textContent = `이미지를 저장했어요. 다운로드 폴더를 확인해 주세요.${cover}`;
+  }
+}
+
+function openImageDialog(url, filename, trigger) {
+  const dlg = $('img-dialog');
+  $('img-dialog-img').src = url;
+  $('img-dialog-download').href = url;
+  $('img-dialog-download').setAttribute('download', filename);
+  if (typeof dlg.showModal === 'function') dlg.showModal();
+  else dlg.setAttribute('open', '');
+  $('img-dialog-close').focus();
+  dlg.onclose = () => { $('img-dialog-img').removeAttribute('src'); trigger?.focus(); };
+}
+
+function setupImageDialog() {
+  const dlg = $('img-dialog');
+  const close = () => { if (dlg.close) dlg.close(); else { dlg.removeAttribute('open'); dlg.onclose?.(); } };
+  $('img-dialog-close').addEventListener('click', close);
+  // 이미지 바깥(어두운 배경)을 누르면 닫기
+  dlg.addEventListener('click', (e) => { if (e.target === dlg) close(); });
 }
 
 // ───────── 단계 들어가기 (주소가 바뀔 때 app.js 가 부른다) ─────────
@@ -458,4 +494,5 @@ export function setupMaker() {
   setupStep2();
   setupStep3();
   setupStep4();
+  setupImageDialog();
 }

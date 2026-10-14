@@ -231,7 +231,7 @@
 
     <!-- 달력: 영수증이 있는 날에 표시. 날짜를 누르면 그날 영수증만 보인다 -->
     <div class="cal" id="cal"></div>
-    <p class="cal-legend" aria-hidden="true"><span class="mark mark--mine"></span>내 영수증 <span class="mark mark--friend">♥</span>친구 영수증</p>
+    <p class="cal-legend" aria-hidden="true"><span class="mark mark--mine"></span>내 영수증 <span class="mark mark--friend"></span>친구 영수증</p>
 
     <div class="list-head">
       <h2 class="list-head__title" id="box-list-title">모든 날짜</h2>
@@ -261,6 +261,17 @@
   <p>kreceipt · 기술개발연구프로젝트 중간 MVP</p>
   <p>캡처는 업로드하지 않고, 영수증은 어떤 서버에도 저장하지 않아요. 노래 정보: iTunes Search API.</p>
 </footer>
+
+<!-- 휴대전화에서 "이미지로 저장"을 누르면 뜨는 창: 이미지를 꾹 눌러 저장 -->
+<dialog class="img-dialog" id="img-dialog" aria-labelledby="img-dialog-title">
+  <h2 id="img-dialog-title">이미지를 꾹 눌러 저장해 주세요</h2>
+  <p class="hint">이미지를 길게 누른 뒤 "이미지 다운로드"(안드로이드) 또는 "사진에 저장"(아이폰)을 고르세요.</p>
+  <img id="img-dialog-img" alt="저장할 영수증 이미지">
+  <div class="row-btns">
+    <a class="btn btn--ghost" id="img-dialog-download" download>파일로 내려받기</a>
+    <button type="button" class="btn btn--primary" id="img-dialog-close">닫기</button>
+  </div>
+</dialog>
 
 <!-- ?debug=1 일 때만 보이는 "지금 화면 상태" 칩 -->
 <div class="debug-chip" id="debug-chip" hidden aria-hidden="true"></div>

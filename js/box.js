@@ -153,7 +153,7 @@ function renderCalendar(entries) {
       marks.className = 'cal__marks';
       marks.setAttribute('aria-hidden', 'true');
       if (c.mine) { const s = document.createElement('span'); s.className = 'mark mark--mine'; marks.append(s); }
-      if (c.friend) { const s = document.createElement('span'); s.className = 'mark mark--friend'; s.textContent = '♥'; marks.append(s); }
+      if (c.friend) { const s = document.createElement('span'); s.className = 'mark mark--friend'; marks.append(s); }
       cell.append(marks);
     }
     td.append(cell);
