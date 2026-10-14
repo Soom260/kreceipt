@@ -1,0 +1,19 @@
+# 내 실제 결제내역 캡처나 개인정보가 담긴 파일은 여기에만 둔다 (절대 커밋하지 않음)
+private/
+
+# 인증키·환경 변수 (지금은 쓰지 않지만 실수 방지)
+.env
+.env.*
+
+# 테스트 도구가 만드는 파일
+node_modules/
+tools/node_modules/
+tools/out/
+test-results/
+playwright-report/
+
+# 운영체제·편집기
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
