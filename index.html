@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- kreceipt 의 유일한 페이지. 화면(홈·만들기 4단계·받은 영수증·보관함)을 모두 담고, 주소 # 뒤 값으로 하나씩 보여 준다. -->
+<!-- kreceipt 의 유일한 페이지. 화면(홈·만들기 4단계·친구 영수증·보관함)을 모두 담고, 주소 # 뒤 값으로 하나씩 보여 준다. -->
 <html lang="ko">
 <head>
 <meta charset="utf-8">
@@ -153,7 +153,11 @@
     <div class="field">
       <label for="song-q" class="label">오늘의 노래 <span class="opt">(선택)</span></label>
       <p class="hint" id="song-hint">곡명이나 가수를 2자 이상 적으면 찾아 줘요.</p>
-      <input type="search" id="song-q" class="input" autocomplete="off" aria-describedby="song-hint" aria-controls="song-results">
+      <!-- 휴대전화 키보드의 "검색" 키로도 찾을 수 있게 form 으로 감싼다 -->
+      <form class="song-form" id="song-form" role="search" action="#" novalidate>
+        <input type="search" id="song-q" class="input" autocomplete="off" enterkeyhint="search" aria-describedby="song-hint" aria-controls="song-results">
+        <button type="submit" class="btn btn--small" id="song-go">찾기</button>
+      </form>
       <div class="picked" id="song-picked" hidden></div>
       <div class="state-box" id="song-state" aria-live="polite"></div>
       <ul class="songs" id="song-results"></ul>
@@ -194,12 +198,17 @@
     </div>
   </section>
 
-  <!-- ───────── 받은 영수증 (#r=...) ───────── -->
+  <!-- ───────── 친구 영수증 (#r=...) ───────── -->
   <section class="view" id="view-read" data-view="read" hidden aria-labelledby="read-title">
-    <h1 id="read-title" class="read-title" tabindex="-1">받은 영수증</h1>
+    <h1 id="read-title" class="read-title" tabindex="-1">친구 영수증</h1>
     <div class="state-box" id="read-state" aria-live="polite"></div>
     <div id="read-body" hidden>
       <div class="receipt-stage" id="read-receipt"></div>
+      <div class="field" id="from-field">
+        <label for="from-name" class="label">누구의 영수증인가요? <span class="opt">(선택)</span></label>
+        <p class="hint" id="from-hint">보관함에서 이 이름으로 보여요. 내 보관함에만 저장돼요. 10자까지.</p>
+        <input type="text" id="from-name" class="input" autocomplete="off" aria-describedby="from-hint">
+      </div>
       <div class="stack-btns">
         <button type="button" class="btn btn--primary" id="keep-btn">보관하기</button>
         <button type="button" class="btn" id="read-image">이미지로 저장</button>
@@ -217,9 +226,17 @@
     <div class="tabs" role="group" aria-label="보관함 보기 방식">
       <button type="button" class="tab" data-filter="all" aria-pressed="true">전체</button>
       <button type="button" class="tab" data-filter="mine" aria-pressed="false">내 영수증</button>
-      <button type="button" class="tab" data-filter="received" aria-pressed="false">받은 영수증</button>
+      <button type="button" class="tab" data-filter="received" aria-pressed="false">친구 영수증</button>
     </div>
 
+    <!-- 달력: 영수증이 있는 날에 표시. 날짜를 누르면 그날 영수증만 보인다 -->
+    <div class="cal" id="cal"></div>
+    <p class="cal-legend" aria-hidden="true"><span class="mark mark--mine"></span>내 영수증 <span class="mark mark--friend">♥</span>친구 영수증</p>
+
+    <div class="list-head">
+      <h2 class="list-head__title" id="box-list-title">모든 날짜</h2>
+      <button type="button" class="btn btn--small btn--ghost" id="cal-clear" hidden>모든 날짜 보기</button>
+    </div>
     <p class="hint" id="box-count" aria-live="polite"></p>
     <div class="state-box" id="box-state" aria-live="polite"></div>
     <ul class="box-list" id="box-list"></ul>

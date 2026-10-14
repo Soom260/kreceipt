@@ -1,4 +1,5 @@
-// 보관함 화면: 내 영수증 / 받은 영수증 목록, 삭제, 파일로 내보내기·가져오기.
+// 보관함 화면: 달력(영수증 있는 날 표시) + 그날의 영수증 목록, 내 영수증 / 친구 영수증 탭,
+// 삭제, 파일로 내보내기·가져오기.
 
 import { showEmpty, showError, clearState } from './states.js';
 import { loadBox, removeFromBox, exportBox, importBox } from './storage.js';
@@ -7,55 +8,171 @@ import { formatDayKo, formatWon, totalOf } from './receipt.js';
 import { startSample, todayStr } from './maker.js';
 
 const $ = (id) => document.getElementById(id);
-let filter = 'all';
-const FILTER_KO = { all: '전체', mine: '내 영수증', received: '받은 영수증' };
+let filter = 'all';          // 'all' | 'mine' | 'received'
+let selected = null;         // 고른 날짜 'YYYY-MM-DD' (없으면 모든 날짜)
+let month = null;            // 달력에 보이는 달 'YYYY-MM'
+const FILTER_KO = { all: '전체', mine: '내 영수증', received: '친구 영수증' };
+const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
 
+const pad = (n) => String(n).padStart(2, '0');
+const kindLabel = (e) => (e.kind === 'mine' ? '내 영수증' : '친구 영수증');
+// 친구 이름: 보관할 때 적은 이름 → 링크 안의 보낸 사람 이름
+const friendName = (e) => (e.kind === 'mine' ? '' : e.from || e.data.n || '');
+
+// ───────── 목록 한 장 ─────────
 function itemEl(e) {
   const li = document.createElement('li');
   li.className = 'box-item';
   const d = e.data;
+
   const head = document.createElement('div');
   head.className = 'box-item__head';
+  const badge = document.createElement('span');
+  badge.className = 'badge ' + (e.kind === 'mine' ? 'badge--mine' : 'badge--friend');
+  badge.textContent = kindLabel(e);
+  const who = document.createElement('span');
+  who.className = 'box-item__who';
+  who.textContent = friendName(e);
   const date = document.createElement('span');
   date.className = 'box-item__date';
   date.textContent = formatDayKo(d.d);
-  const kind = document.createElement('span');
-  kind.className = 'box-item__kind';
-  kind.textContent = e.kind === 'mine' ? '내 영수증' : `${d.n || '이름 없는 친구'}에게 받음`;
-  head.append(date, kind);
+  head.append(badge, who, date);
 
   const sum = document.createElement('p');
   sum.className = 'box-item__sum';
   const names = d.i.slice(0, 2).map(([n]) => n).join(', ');
   sum.textContent = `${names}${d.i.length > 2 ? ` 외 ${d.i.length - 2}개` : ''} · ${formatWon(totalOf(d))}원${d.m ? ` · "${d.m}"` : ''}`;
 
+  const label = `${formatDayKo(d.d)} ${kindLabel(e)}${friendName(e) ? ` (${friendName(e)})` : ''}`;
   const btns = document.createElement('div');
   btns.className = 'row-btns';
   const open = document.createElement('a');
   open.className = 'btn btn--small';
   open.href = '#r=' + e.key;
   open.textContent = '열기';
-  open.setAttribute('aria-label', `${formatDayKo(d.d)} ${kind.textContent} 열기`);
+  open.setAttribute('aria-label', `${label} 열기`);
   const del = document.createElement('button');
   del.type = 'button';
   del.className = 'btn btn--small btn--danger';
   del.textContent = '삭제';
-  del.setAttribute('aria-label', `${formatDayKo(d.d)} ${kind.textContent} 삭제`);
+  del.setAttribute('aria-label', `${label} 삭제`);
   del.addEventListener('click', () => {
-    if (!window.confirm(`${formatDayKo(d.d)} 영수증을 보관함에서 지울까요? 되돌릴 수 없어요.`)) return;
+    if (!window.confirm(`${label}을(를) 보관함에서 지울까요? 되돌릴 수 없어요.`)) return;
     const ok = removeFromBox(e.key);
     renderBox();
-    const st = $('backup-status');
     $('box-count').textContent = ok ? `지웠어요. ${$('box-count').textContent}` : '지우지 못했어요. 다시 시도해 주세요.';
-    st.textContent = '';
-    $('box-title').focus();
+    $('box-list-title').focus();
   });
   btns.append(open, del);
   li.append(head, sum, btns);
   return li;
 }
 
-export function renderBox() {
+// ───────── 달력 ─────────
+function shiftMonth(ym, delta) {
+  const [y, m] = ym.split('-').map(Number);
+  const dt = new Date(y, m - 1 + delta, 1);
+  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}`;
+}
+
+function renderCalendar(entries) {
+  const cal = $('cal');
+  // 날짜별 장 수 { 'YYYY-MM-DD': { mine, friend } }
+  const byDay = {};
+  entries.forEach((e) => {
+    const c = byDay[e.data.d] || (byDay[e.data.d] = { mine: 0, friend: 0 });
+    if (e.kind === 'mine') c.mine++; else c.friend++;
+  });
+
+  const [y, m] = month.split('-').map(Number);
+  const first = new Date(y, m - 1, 1).getDay();
+  const days = new Date(y, m, 0).getDate();
+  const today = todayStr();
+
+  const head = document.createElement('div');
+  head.className = 'cal__head';
+  const prev = document.createElement('button');
+  prev.type = 'button';
+  prev.className = 'cal__nav';
+  prev.textContent = '‹';
+  prev.setAttribute('aria-label', '이전 달');
+  prev.addEventListener('click', () => { month = shiftMonth(month, -1); renderBox({ keepFocus: '.cal__nav:first-of-type' }); });
+  const title = document.createElement('h2');
+  title.className = 'cal__title';
+  title.id = 'cal-title';
+  title.textContent = `${y}년 ${m}월`;
+  const next = document.createElement('button');
+  next.type = 'button';
+  next.className = 'cal__nav';
+  next.textContent = '›';
+  next.setAttribute('aria-label', '다음 달');
+  next.addEventListener('click', () => { month = shiftMonth(month, 1); renderBox({ keepFocus: '.cal__nav:last-of-type' }); });
+  head.append(prev, title, next);
+
+  const table = document.createElement('table');
+  table.className = 'cal__grid';
+  table.setAttribute('aria-labelledby', 'cal-title');
+  const thead = document.createElement('thead');
+  const hr = document.createElement('tr');
+  WEEK.forEach((w) => { const th = document.createElement('th'); th.scope = 'col'; th.textContent = w; hr.append(th); });
+  thead.append(hr);
+  const tbody = document.createElement('tbody');
+  let tr = document.createElement('tr');
+  for (let k = 0; k < first; k++) tr.append(document.createElement('td'));
+  let monthCount = 0;
+  for (let d = 1; d <= days; d++) {
+    const key = `${month}-${pad(d)}`;
+    const c = byDay[key];
+    const td = document.createElement('td');
+    const dow = (first + d - 1) % 7;
+    let cell;
+    if (c) {
+      monthCount += c.mine + c.friend;
+      cell = document.createElement('button');
+      cell.type = 'button';
+      cell.setAttribute('aria-pressed', String(selected === key));
+      const parts = [];
+      if (c.mine) parts.push(`내 영수증 ${c.mine}장`);
+      if (c.friend) parts.push(`친구 영수증 ${c.friend}장`);
+      cell.setAttribute('aria-label', `${m}월 ${d}일 ${WEEK[dow]}요일${key === today ? ' 오늘' : ''}, ${parts.join(', ')}`);
+      cell.addEventListener('click', () => {
+        selected = selected === key ? null : key; // 같은 날을 다시 누르면 선택 풀기
+        renderBox({ keepFocus: `[data-day="${key}"]` });
+      });
+    } else {
+      cell = document.createElement('span');
+    }
+    cell.className = 'cal__day' + (c ? ' has' : '') + (key === today ? ' is-today' : '') + (dow === 0 ? ' is-sun' : '');
+    cell.dataset.day = key;
+    const num = document.createElement('span');
+    num.className = 'cal__num';
+    num.textContent = d;
+    cell.append(num);
+    if (c) {
+      const marks = document.createElement('span');
+      marks.className = 'cal__marks';
+      marks.setAttribute('aria-hidden', 'true');
+      if (c.mine) { const s = document.createElement('span'); s.className = 'mark mark--mine'; marks.append(s); }
+      if (c.friend) { const s = document.createElement('span'); s.className = 'mark mark--friend'; s.textContent = '♥'; marks.append(s); }
+      cell.append(marks);
+    }
+    td.append(cell);
+    tr.append(td);
+    if (dow === 6) { tbody.append(tr); tr = document.createElement('tr'); }
+  }
+  if (tr.children.length) tbody.append(tr);
+  table.append(thead, tbody);
+
+  const note = document.createElement('p');
+  note.className = 'cal__note';
+  note.textContent = monthCount ? `이 달에 ${monthCount}장` : '이 달에는 영수증이 없어요';
+  cal.replaceChildren(head, table, note);
+}
+
+// ───────── 화면 그리기 ─────────
+// reset: 보관함 화면에 새로 들어올 때 → 가장 최근 달, 날짜 선택 없음
+export function renderBox({ keepFocus, reset } = {}) {
+  if (reset) { month = null; selected = null; }
   const state = $('box-state');
   const list = $('box-list');
   document.querySelectorAll('#view-box .tab').forEach((t) => t.setAttribute('aria-pressed', String(t.dataset.filter === filter)));
@@ -63,51 +180,70 @@ export function renderBox() {
   const all = loadBox();
   if (all === null) {
     list.replaceChildren();
+    $('cal').replaceChildren();
     $('box-count').textContent = '';
     showError(state, {
       where: '보관함',
       what: '보관함을 열 수 없어요.',
       why: '이 브라우저는 저장 공간을 쓸 수 없게 막혀 있어요. 시크릿 창이거나 사이트 데이터 저장이 꺼져 있을 수 있어요.',
       todo: '일반 창에서 다시 열어 주세요. 영수증은 "이미지로 저장"으로 남겨 둘 수 있어요.',
-      onRetry: renderBox,
+      onRetry: () => renderBox(),
     });
     return;
   }
 
-  const shown = all
-    .filter((e) => filter === 'all' || e.kind === filter)
-    .sort((a, b) => (a.data.d === b.data.d ? b.savedAt - a.savedAt : a.data.d < b.data.d ? 1 : -1));
+  const byTab = all.filter((e) => filter === 'all' || e.kind === filter);
+  // 처음 열 때는 가장 최근 영수증이 있는 달 (없으면 이번 달)
+  if (!month) {
+    const latest = all.map((e) => e.data.d).sort().pop();
+    month = (latest || todayStr()).slice(0, 7);
+  }
+  renderCalendar(byTab);
+
+  const shown = byTab
+    .filter((e) => !selected || e.data.d === selected)
+    // 날짜 최근순 → 같은 날은 내 영수증 먼저 → 저장 최근순
+    .sort((a, b) => (a.data.d !== b.data.d ? (a.data.d < b.data.d ? 1 : -1) : a.kind !== b.kind ? (a.kind === 'mine' ? -1 : 1) : b.savedAt - a.savedAt));
   list.replaceChildren(...shown.map(itemEl));
-  $('box-count').textContent = shown.length ? `${FILTER_KO[filter]} ${shown.length}장 · 최근 날짜순` : '';
+
+  $('box-list-title').textContent = selected ? `${formatDayKo(selected)}의 영수증` : '모든 날짜';
+  $('box-list-title').tabIndex = -1;
+  $('cal-clear').hidden = !selected;
+  $('box-count').textContent = shown.length ? `${FILTER_KO[filter]} ${shown.length}장${selected ? '' : ' · 최근 날짜순'}` : '';
+
+  if (keepFocus) document.querySelector(`#cal ${keepFocus}`)?.focus();
 
   if (shown.length) { clearState(state, '보관함'); return; }
   if (!all.length) {
     showEmpty(state, {
       where: '보관함',
       title: '보관함이 비어 있어요.',
-      desc: '영수증을 만들거나, 받은 링크에서 "보관하기"를 누르면 여기에 모여요.',
+      desc: '영수증을 만들거나, 친구에게 받은 링크에서 "보관하기"를 누르면 여기에 모여요.',
       actions: [
         { label: '영수증 만들기', onClick: () => { location.hash = '#make-1'; }, primary: true },
         { label: '샘플 캡처로 해보기', onClick: () => startSample(1) },
       ],
     });
-  } else {
-    showEmpty(state, {
-      where: '보관함',
-      title: filter === 'mine' ? '내가 만든 영수증이 아직 없어요.' : '받은 영수증이 아직 없어요.',
-      desc: filter === 'mine' ? '영수증을 만들면 자동으로 여기에 보관돼요.' : '친구에게 받은 링크를 열고 "보관하기"를 눌러 보세요.',
-      actions: [
-        { label: '전체 보기', onClick: () => { filter = 'all'; renderBox(); } },
-        ...(filter === 'mine' ? [{ label: '영수증 만들기', onClick: () => { location.hash = '#make-1'; } }] : []),
-      ],
-    });
+    return;
   }
+  const what = filter === 'mine' ? '내 영수증이' : filter === 'received' ? '친구 영수증이' : '영수증이';
+  const actions = [];
+  if (selected) actions.push({ label: '모든 날짜 보기', onClick: () => { selected = null; renderBox(); } });
+  if (filter !== 'all') actions.push({ label: '전체 보기', onClick: () => { filter = 'all'; renderBox(); } });
+  if (filter === 'mine') actions.push({ label: '영수증 만들기', onClick: () => { location.hash = '#make-1'; } });
+  showEmpty(state, {
+    where: '보관함',
+    title: selected ? `${formatDayKo(selected)}에는 ${what} 없어요.` : `${what} 아직 없어요.`,
+    desc: filter === 'received' ? '친구에게 받은 링크를 열고 "보관하기"를 눌러 보세요.' : filter === 'mine' ? '영수증을 만들면 자동으로 여기에 보관돼요.' : '',
+    actions,
+  });
 }
 
 export function setupBox() {
   document.querySelectorAll('#view-box .tab').forEach((t) => {
     t.addEventListener('click', () => { filter = t.dataset.filter; renderBox(); });
   });
+  $('cal-clear').addEventListener('click', () => { selected = null; renderBox(); $('box-list-title').focus(); });
 
   $('export-btn').addEventListener('click', () => {
     const st = $('backup-status');

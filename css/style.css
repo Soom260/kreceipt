@@ -21,6 +21,8 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; }
+/* hidden 속성은 버튼·칸의 display 스타일보다 늘 우선한다 */
+[hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
@@ -158,20 +160,19 @@ textarea.input { resize: vertical; }
 .tx__fields { min-width: 0; display: flex; flex-direction: column; gap: 0.4rem; }
 .tx__line { display: flex; gap: 0.4rem; align-items: flex-start; min-width: 0; }
 .tx__line > .tx__cell { flex: 1 1 0; min-width: 0; }
-.tx__cell--time { flex: 0 0 auto !important; width: 6.4rem; }
+/* 시간 입력칸은 휴대전화에서 기본 폭이 커서 옆 칸과 겹치므로 폭을 칸에 맞춘다 */
+.tx .input { min-width: 0; width: 100%; }
 .tx .input { min-height: 44px; padding: 0.45rem 0.6rem; }
 .tx__amount { font-family: var(--mono); text-align: right; }
 .sr-only {
   position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
   clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
-.icon-btn {
-  flex: 0 0 auto; width: 44px; height: 44px; border-radius: 10px; border: 1.5px solid var(--line);
-  background: transparent; color: var(--muted); font-size: 1.1rem; cursor: pointer;
-}
-.icon-btn:hover { color: var(--error); border-color: #f1b8b3; }
 
 /* ───────── 노래(3단계) ───────── */
+.song-form { display: flex; gap: 0.4rem; align-items: stretch; }
+.song-form .input { flex: 1 1 auto; min-width: 0; }
+.song-form .btn { flex: 0 0 auto; min-height: 48px; }
 .songs { list-style: none; padding: 0; margin: 0.5rem 0 0; display: flex; flex-direction: column; gap: 0.5rem; }
 .song, .picked {
   display: flex; align-items: center; gap: 0.6rem;
@@ -266,8 +267,48 @@ textarea.input { resize: vertical; }
 .box-list { list-style: none; padding: 0; margin: 0.5rem 0 0; display: flex; flex-direction: column; gap: 0.6rem; }
 .box-item { background: var(--card); border-radius: var(--radius); padding: 0.9rem; }
 .box-item__head { display: flex; justify-content: space-between; gap: 0.5rem; align-items: baseline; flex-wrap: wrap; }
-.box-item__date { font-family: var(--mono); font-weight: 500; }
-.box-item__kind { font-size: 0.78rem; color: var(--muted); }
+.box-item__head { justify-content: flex-start; gap: 0.4rem; }
+.box-item__date { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); margin-left: auto; }
+.box-item__who { font-weight: 700; }
+.badge { display: inline-block; font-size: 0.75rem; font-weight: 700; padding: 0.1rem 0.55rem; border-radius: 999px; }
+.badge--mine { background: #dbeafe; color: #1e40af; }
+.badge--friend { background: #fce7f3; color: #9d174d; }
+
+/* 보관함 달력 */
+:root { --friend: #e0558f; }  /* 친구 영수증 하트 (흰 바탕 대비 약 3.5:1) */
+.cal { background: var(--card); border-radius: 20px; padding: 0.8rem 0.6rem 0.6rem; margin: 0.75rem 0 0.4rem; box-shadow: 0 6px 18px -12px rgba(30,64,120,.35); }
+.cal__head { display: flex; align-items: center; justify-content: space-between; padding: 0 0.2rem 0.4rem; }
+.cal__title { font-size: 1.05rem; margin: 0; font-weight: 700; }
+.cal__nav { width: 44px; height: 44px; border-radius: 50%; border: 0; background: #f1f5f9; font-size: 1.4rem; line-height: 1; color: var(--ink); cursor: pointer; }
+.cal__nav:hover { background: #e2e8f0; }
+.cal__grid { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.cal__grid th { font-size: 0.75rem; font-weight: 500; color: var(--muted); padding: 0.2rem 0; }
+.cal__grid th:first-child { color: #c2410c; }
+.cal__grid td { padding: 2px; text-align: center; }
+.cal__day {
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 1px;
+  width: 100%; min-height: 44px; padding: 0.3rem 0 0.2rem; border-radius: 12px;
+  font: inherit; font-size: 0.85rem; color: #94a3b8; background: transparent; border: 2px solid transparent;
+}
+.cal__day.is-sun .cal__num { color: #ea8a5f; }
+.cal__day.has { color: var(--ink); font-weight: 700; background: #f8fafc; cursor: pointer; }
+.cal__day.has:hover { background: #eef4ff; }
+.cal__day[aria-pressed="true"] { background: var(--ink); color: #fff; }
+.cal__day[aria-pressed="true"] .cal__num { color: #fff; }
+.cal__day.is-today { border-color: #93c5fd; }
+.cal__marks { display: flex; gap: 3px; align-items: center; height: 12px; }
+.cal__note { font-size: 0.78rem; color: var(--muted); text-align: right; margin: 0.3rem 0.3rem 0; }
+.mark { display: inline-block; vertical-align: middle; }
+.mark--mine { width: 7px; height: 7px; border-radius: 50%; background: var(--point); }
+.mark--friend { color: var(--friend); font-size: 11px; line-height: 1; }
+.cal__day[aria-pressed="true"] .mark--mine { background: #93c5fd; }
+.cal__day[aria-pressed="true"] .mark--friend { color: #f9a8d4; }
+.cal-legend { font-size: 0.78rem; color: var(--muted); display: flex; align-items: center; gap: 0.35rem; margin: 0 0.3rem 0.6rem; }
+.cal-legend .mark--friend { margin-left: 0.6rem; }
+.list-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 0.8rem; }
+.list-head__title { font-size: 1.05rem; margin: 0; }
+.list-head__title:focus { outline: none; }
+.list-head__title:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; border-radius: 4px; }
 .box-item__sum { font-size: 0.9rem; color: var(--muted); margin: 0.2rem 0 0.5rem; }
 .box-item .row-btns { margin: 0; }
 .backup { margin-top: 1.5rem; background: var(--card); border-radius: var(--radius); padding: 0.4rem 1rem; }

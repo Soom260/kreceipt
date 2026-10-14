@@ -31,7 +31,7 @@ function route() {
   if (h.startsWith('#r=')) {
     show('read');
     showReceived(h.slice(3));
-    document.title = 'kreceipt — 받은 영수증';
+    document.title = 'kreceipt — 친구 영수증';
     return;
   }
   document.title = 'kreceipt — 영수증으로 쓰는 하루 기록';
@@ -46,7 +46,7 @@ function route() {
   }
   if (h === '#box') {
     show('box');
-    renderBox();
+    renderBox({ reset: true });
     return;
   }
   show('home');

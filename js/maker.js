@@ -207,22 +207,8 @@ function rowEl(r, idx) {
   const tm = mk('tx__cell--time', `${idx + 1}번째 항목 시간 (선택)`, r.time, { type: 'time' });
   tm.inp.addEventListener('input', () => { r.time = tm.inp.value; });
 
-  const del = document.createElement('button');
-  del.type = 'button';
-  del.className = 'icon-btn';
-  del.textContent = '✕';
-  del.setAttribute('aria-label', `${idx + 1}번째 항목 지우기`);
-  del.addEventListener('click', () => {
-    const pos = visibleRows().indexOf(r);
-    draft.rows = draft.rows.filter((x) => x !== r);
-    renderRows();
-    $('rows-count').textContent = `항목을 지웠어요. ` + $('rows-count').textContent;
-    // 지운 자리의 다음 항목(없으면 앞 항목, 그것도 없으면 추가 버튼)으로 초점
-    const boxes = document.querySelectorAll('#rows .tx input[type=checkbox]');
-    (boxes[Math.min(pos, boxes.length - 1)] || $('row-add')).focus();
-  });
-
-  line.append(amt.cell, tm.cell, del);
+  // 지우기 버튼은 두지 않는다: 영수증에 넣지 않을 항목은 체크만 풀면 된다
+  line.append(amt.cell, tm.cell);
   fields.append(name.cell, line);
   li.append(ck, fields);
   return li;
@@ -266,7 +252,7 @@ function setDate(d) {
 
 function addRow() {
   if (draft.rows.length >= LIMITS.rowsMax) {
-    showBlockError($('rows-error'), `항목은 ${LIMITS.rowsMax}개까지 둘 수 있어요. 필요 없는 항목을 지워 주세요.`);
+    showBlockError($('rows-error'), `항목은 ${LIMITS.rowsMax}개까지 추가할 수 있어요. 이미 있는 빈 칸을 채워 써 주세요.`);
     return;
   }
   draft.rows.push(newRow({ checked: true }));
@@ -363,6 +349,7 @@ function setupStep3() {
   $('message').addEventListener('input', () => { updateCounter(); if ($('message').getAttribute('aria-invalid')) clearFieldError($('message')); });
   $('nick').addEventListener('input', () => { if ($('nick').getAttribute('aria-invalid')) clearFieldError($('nick')); });
   picker = setupSongPicker({
+    form: $('song-form'),
     input: $('song-q'),
     stateBox: $('song-state'),
     list: $('song-results'),

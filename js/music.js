@@ -4,6 +4,7 @@
 
 import { ITUNES, LIMITS, SEARCH_DEBOUNCE_MS, SIM, SIM_SLOW_MS, wait } from './config.js';
 import { showLoading, showEmpty, showError, clearState, reportState } from './states.js';
+import { setFieldError, clearFieldError } from './validate.js';
 
 // iTunes 결과 한 줄 → 앱에서 쓰는 모양
 function normalize(r) {
@@ -21,16 +22,30 @@ async function getJSON(url, signal) {
   if (SIM.slow) await wait(SIM_SLOW_MS);
   if (SIM.error) throw new Error('sim-error');
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), ITUNES.timeoutMs);
+  let timedOut = false;
+  const timer = setTimeout(() => { timedOut = true; ctrl.abort(); }, ITUNES.timeoutMs);
   if (signal) signal.addEventListener('abort', () => ctrl.abort());
   try {
     const res = await fetch(url, { signal: ctrl.signal });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    if (!res.ok) throw Object.assign(new Error('HTTP ' + res.status), { kind: res.status === 403 || res.status === 429 ? 'limit' : 'server' });
     return await res.json();
+  } catch (e) {
+    // 화면에 이유를 다르게 보여 주려고 실패 종류를 붙인다
+    if (!e.kind) e.kind = timedOut ? 'timeout' : navigator.onLine === false ? 'offline' : e.name === 'AbortError' ? 'abort' : 'network';
+    throw e;
   } finally {
     clearTimeout(timer);
   }
 }
+
+// 실패 종류 → "왜" 문장
+const WHY = {
+  offline: '휴대전화(컴퓨터)가 인터넷에 연결되어 있지 않아요.',
+  timeout: `iTunes 서버가 ${ITUNES.timeoutMs / 1000}초 안에 답하지 않았어요. 인터넷이 느릴 수 있어요.`,
+  limit: '짧은 시간에 노래를 너무 많이 찾아서 iTunes가 잠깐 막았어요. (1분에 약 20번까지)',
+  server: 'iTunes 서버에 문제가 생겼어요.',
+  network: '인터넷이 끊겼거나, 브라우저·통신사 설정이 iTunes 연결을 막았을 수 있어요.',
+};
 
 export async function searchSongs(term, signal) {
   if (SIM.empty) { if (SIM.slow) await wait(SIM_SLOW_MS); return []; }
@@ -170,7 +185,7 @@ export async function fillReceiptSong(slot, s, known) {
 }
 
 // 3단계 "노래 고르기" 화면 연결
-export function setupSongPicker({ input, stateBox, list, pickedBox, onPick, getPicked }) {
+export function setupSongPicker({ form, input, stateBox, list, pickedBox, onPick, getPicked }) {
   let timer = null;
   let ctrl = null;
   let lastTerm = '';
@@ -245,37 +260,48 @@ export function setupSongPicker({ input, stateBox, list, pickedBox, onPick, getP
       }
       clearState(stateBox, '노래 검색');
       renderResults(songs);
+      list.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     } catch (e) {
       if (my.signal.aborted && e.name === 'AbortError') return;
       showError(stateBox, {
         where: '노래 검색',
         what: '노래 정보를 불러오지 못했어요.',
-        why: '인터넷이 끊겼거나 iTunes 서버가 잠시 응답하지 않아요. 짧은 시간에 너무 많이 찾아도 잠깐 막힐 수 있어요.',
-        todo: '잠시 뒤 다시 시도해 주세요. 노래 없이 영수증을 만들어도 돼요.',
+        why: WHY[e.kind] || WHY.network,
+        todo: e.kind === 'limit' ? '1분쯤 뒤에 다시 시도해 주세요. 노래 없이 영수증을 만들어도 돼요.' : '연결을 확인하고 다시 시도해 주세요. 노래 없이 영수증을 만들어도 돼요.',
         onRetry: () => run(lastTerm),
       });
     }
   };
 
-  input.addEventListener('input', () => {
+  // 입력이 바뀔 때마다 잠깐 기다렸다가 찾는다.
+  // 휴대전화 한글 키보드는 글자 조합이 끝날 때만 알려 주는 경우가 있어 여러 신호를 함께 듣는다.
+  const schedule = () => {
     clearTimeout(timer);
     const term = input.value.trim();
+    if (input.getAttribute('aria-invalid')) clearFieldError(input);
     if (term.length < LIMITS.songQueryMin) {
       if (ctrl) ctrl.abort();
+      lastTerm = '';
       list.replaceChildren();
       clearState(stateBox);
       return;
     }
+    if (term === lastTerm) return;
     timer = setTimeout(() => run(term), SEARCH_DEBOUNCE_MS);
-  });
-  // Enter 로 바로 찾기
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      clearTimeout(timer);
-      const term = input.value.trim();
-      if (term.length >= LIMITS.songQueryMin && term !== lastTerm) run(term);
+  };
+  ['input', 'keyup', 'compositionend', 'change'].forEach((ev) => input.addEventListener(ev, schedule));
+
+  // "찾기" 버튼·키보드의 검색(Enter) 키: 바로 찾고, 휴대전화 키보드를 내려 결과가 가리지 않게 한다
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    clearTimeout(timer);
+    const term = input.value.trim();
+    if (term.length < LIMITS.songQueryMin) {
+      setFieldError(input, `노래 검색어를 ${LIMITS.songQueryMin}자 이상 적어 주세요.`, { after: form });
+      return;
     }
+    input.blur();
+    run(term);
   });
 
   return { renderPicked };

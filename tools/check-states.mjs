@@ -205,6 +205,69 @@ const shot = (page, name) => page.screenshot({ path: `out/${name}.png`, fullPage
   await p.context().close();
 }
 
+// 12) 2단계 행: 금액·시간 칸이 겹치지 않고 카드 안에 들어가는지 (360px)
+{
+  const p = await newPage();
+  await p.goto(BASE + '#home');
+  await p.click('#view-home [data-manual]');
+  await p.waitForSelector('#rows .tx');
+  const r = await p.evaluate(() => {
+    const li = document.querySelector('#rows .tx');
+    const a = li.querySelector('.tx__cell--amount').getBoundingClientRect();
+    const t = li.querySelector('.tx__cell--time').getBoundingClientRect();
+    const box = li.getBoundingClientRect();
+    return { overlap: a.right > t.left + 0.5, inside: t.right <= box.right + 0.5, del: !!li.querySelector('.icon-btn') };
+  });
+  record('2단계 행: 금액·시간 겹침 없음, 지우기 버튼 없음', !r.overlap && r.inside && !r.del, JSON.stringify(r));
+  await p.context().close();
+}
+
+// 13) 친구 영수증 이름 저장 + 보관함 라벨 + 달력 표시
+{
+  const p = await newPage();
+  await p.goto(BASE + '#home');
+  const mk = (o) => p.evaluate((o) => window.LZString.compressToEncodedURIComponent(JSON.stringify(o)), o);
+  const friend = await mk({ v: 1, d: '2026-10-09', n: '민지', i: [['붕어빵', 2000]] });
+  const friend2 = await mk({ v: 1, d: '2026-10-09', i: [['꽃', 12000]] });
+  await p.goto(BASE + '#r=' + friend);
+  await p.waitForSelector('#read-body:not([hidden])');
+  record('친구 영수증: 이름 칸에 보낸 사람 이름 미리 채움', (await p.inputValue('#from-name')) === '민지');
+  await p.fill('#from-name', '가나다라마바사아자차카');
+  await p.click('#keep-btn');
+  record('친구 이름 11자: 안내·초점', await p.evaluate(() => document.activeElement.id === 'from-name' && document.getElementById('from-name').getAttribute('aria-invalid') === 'true'));
+  await p.fill('#from-name', '민지');
+  await p.click('#keep-btn');
+  record('친구 이름으로 보관', /민지님의 영수증으로/.test(await p.textContent('#keep-status')));
+  await p.goto(BASE + '#r=' + friend2);
+  await p.waitForSelector('#read-body:not([hidden])');
+  await p.fill('#from-name', '하늘');
+  await p.click('#keep-btn');
+  // 내 영수증 하나 (직접 입력)
+  await p.goto(BASE + '#home');
+  await p.click('#view-home [data-manual]');
+  await p.fill('#day-date', '2026-10-09');
+  await p.fill('#rows .tx__cell--name input', '김밥');
+  await p.fill('#rows .tx__cell--amount input', '3500');
+  await p.click('#to-step3');
+  await p.click('#to-step4');
+  await p.waitForURL(/#make-4/);
+  await p.click('.top nav a[href="#box"]');
+  await p.waitForSelector('#box-list .box-item');
+  const badges = await p.$$eval('#box-list .box-item', (els) => els.map((e) => e.querySelector('.badge').textContent + ' ' + e.querySelector('.box-item__who').textContent));
+  record('전체 탭에 [내 영수증]/[친구 영수증] 라벨과 친구 이름', badges.includes('내 영수증 ') && badges.includes('친구 영수증 민지') && badges.includes('친구 영수증 하늘'), badges.join(' / '));
+  const day = await p.getAttribute('#cal [data-day="2026-10-09"]', 'aria-label');
+  record('달력: 10월 9일에 내 1장·친구 2장 표시', /내 영수증 1장, 친구 영수증 2장/.test(day || ''), day);
+  record('달력: 파란 점·분홍 하트', (await p.$$('#cal [data-day="2026-10-09"] .mark--mine')).length === 1 && (await p.$$('#cal [data-day="2026-10-09"] .mark--friend')).length === 1);
+  await shot(p, 'box-calendar');
+  await p.click('#cal [data-day="2026-10-09"]');
+  record('날짜 누르면 그날 목록 3장 + 제목', (await p.$$('#box-list .box-item')).length === 3 && /10\. 9\./.test(await p.textContent('#box-list-title')));
+  await p.click('#view-box .tab[data-filter="received"]');
+  record('친구 탭: 2장, 달력 표시도 친구만', (await p.$$('#box-list .box-item')).length === 2 && (await p.$$('#cal .mark--mine')).length === 0);
+  record('360px 보관함(달력) 가로 넘침 없음', (await overflow(p)) <= 0);
+  await shot(p, 'box-calendar-selected');
+  await p.context().close();
+}
+
 await browser.close();
 const fail = results.filter((r) => !r.ok).length;
 console.log(`\n${results.length - fail}/${results.length} 통과`);

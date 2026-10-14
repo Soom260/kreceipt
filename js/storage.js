@@ -1,7 +1,7 @@
 // 보관함과 닉네임을 이 브라우저(localStorage)에 저장하는 파일.
 // 저장이 막힌 환경(일부 시크릿 창 등)이 있어 읽기·쓰기를 모두 try/catch 로 감싼다.
 
-import { SIM } from './config.js';
+import { SIM, LIMITS } from './config.js';
 import { decodeReceipt, validateReceipt } from './share.js';
 
 const BOX_KEY = 'kreceipt.box.v1';
@@ -24,7 +24,8 @@ export function isAvailable() {
   return available;
 }
 
-// 보관함 항목 모양: { key: 링크 코드, kind: 'mine'|'received', data: 영수증, savedAt: 저장 시각(ms) }
+// 보관함 항목 모양: { key: 링크 코드, kind: 'mine'|'received', data: 영수증, savedAt: 저장 시각(ms), from?: 보관할 때 적은 친구 이름 }
+// from 은 내 보관함에만 있고 링크에는 들어가지 않는다.
 export function loadBox() {
   if (!isAvailable()) return null;
   try {
@@ -60,7 +61,9 @@ export function findInBox(key) {
 }
 
 // 결과: 'added' | 'exists' | 'error'
-export function addToBox(key, kind, data, replaceKey) {
+const cleanFrom = (v) => (typeof v === 'string' ? Array.from(v.trim()).slice(0, LIMITS.nickMax).join('') : '');
+
+export function addToBox(key, kind, data, replaceKey, from) {
   const list = loadBox();
   if (list === null) return 'error';
   let next = replaceKey && replaceKey !== key ? list.filter((e) => e.key !== replaceKey) : list;
@@ -68,7 +71,9 @@ export function addToBox(key, kind, data, replaceKey) {
     if (next !== list) saveBox(next);
     return 'exists';
   }
-  next = next.concat([{ key, kind, data, savedAt: Date.now() }]);
+  const entry = { key, kind, data, savedAt: Date.now() };
+  if (cleanFrom(from)) entry.from = cleanFrom(from);
+  next = next.concat([entry]);
   return saveBox(next) ? 'added' : 'error';
 }
 
@@ -117,7 +122,9 @@ export function importBox(text) {
     const dec = e && typeof e.key === 'string' ? decodeReceipt(e.key) : { ok: false };
     if (!dec.ok || (e.kind !== 'mine' && e.kind !== 'received')) { skippedBad++; continue; }
     if (next.find((x) => x.key === e.key)) { skippedSame++; continue; }
-    next.push({ key: e.key, kind: e.kind, data: dec.data, savedAt: Number(e.savedAt) || Date.now() });
+    const entry = { key: e.key, kind: e.kind, data: dec.data, savedAt: Number(e.savedAt) || Date.now() };
+    if (cleanFrom(e.from)) entry.from = cleanFrom(e.from);
+    next.push(entry);
     added++;
   }
   if (added && !saveBox(next)) return { ok: false, msg: '저장하지 못했어요. 브라우저 저장 공간이 부족할 수 있어요.' };
