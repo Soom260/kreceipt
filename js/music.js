@@ -1,10 +1,10 @@
 // "오늘의 노래" — iTunes Search API 로 노래를 찾고, 30초 미리듣기를 재생하는 파일.
 // 인증키가 필요 없는 공개 API. 브라우저에서 바로 호출된다 (2026-10-14 확인: Access-Control-Allow-Origin: *).
 // fetch 가 막히는 환경을 위해 JSONP 우회로도 둔다.
-// 아이폰은 Apple 이 검색을 음악 앱으로 돌려보내므로 Deezer 로 찾는다 (곡마다 출처 src 를 기억).
+// iTunes 검색이 실패하면(아이폰에서 Apple 이 음악 앱으로 돌려보내는 경우 등) Deezer 로 다시 찾는다 (곡마다 출처 src 를 기억).
 // 호출 제한(분당 약 20회)이 있어 검색은 입력 후 잠깐 기다렸다가(디바운스) 보낸다.
 
-import { ITUNES, DEEZER, IS_IOS_MOBILE, LIMITS, SEARCH_DEBOUNCE_MS, SIM, SIM_SLOW_MS, wait } from './config.js';
+import { ITUNES, DEEZER, LIMITS, SEARCH_DEBOUNCE_MS, SIM, SIM_SLOW_MS, wait } from './config.js';
 import { showLoading, showEmpty, showError, clearState, reportState } from './states.js';
 import { setFieldError, clearFieldError } from './validate.js';
 
@@ -123,10 +123,9 @@ async function searchItunes(term, signal) {
   return (data.results || []).filter((r) => r.trackId).map(normalize);
 }
 
-// 아이폰은 바로 Deezer, 그 밖에는 iTunes → 막히거나(연결·호출 제한·서버 문제) 실패하면 Deezer 로 한 번 더
+// 모든 기기에서 iTunes 먼저 → 막히거나(연결·호출 제한·서버 문제) 실패하면 Deezer 로 한 번 더
 export async function searchSongs(term, signal) {
   if (SIM.empty) { if (SIM.slow) await wait(SIM_SLOW_MS); return []; }
-  if (IS_IOS_MOBILE) return searchDeezer(term, signal);
   try {
     return await searchItunes(term, signal);
   } catch (e) {
@@ -198,6 +197,11 @@ export function songInfo(song) {
   text.className = 'song__text';
   const t = document.createElement('span'); t.className = 'song__title'; t.textContent = song.title;
   const a = document.createElement('span'); a.className = 'song__artist'; a.textContent = song.artist;
+  // 어디서 찾은 곡인지 작게 표시 (iTunes / Deezer)
+  const src = document.createElement('span');
+  src.className = 'song__src';
+  src.textContent = song.src === 'dz' ? 'Deezer' : 'iTunes';
+  a.append(' · ', src);
   text.append(t, a);
   frag.append(img, text);
   return { frag, text };

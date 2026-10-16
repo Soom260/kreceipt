@@ -36,15 +36,14 @@ export const ITUNES = {
   timeoutMs: 8000,
 };
 
-// Deezer API (인증키 없음). 아이폰 브라우저에서는 Apple 이 iTunes 검색 요청을 음악 앱(musics://)으로
-// 돌려보내 결과를 읽을 수 없어서(2026-10-16 확인), 아이폰에서는 Deezer 로 찾는다. 브라우저에서는 JSONP 로만 받을 수 있다.
+// Deezer API (인증키 없음) — iTunes 검색이 실패할 때만 쓰는 예비 검색.
+// 아이폰 브라우저인 척 보낸 요청에 Apple 이 음악 앱(musics://)으로 돌려보내는 경우가 확인돼서(2026-10-16) 대비해 둔다.
+// 실제 아이폰에서는 iTunes 가 되는 경우도 있어 iTunes 를 늘 먼저 쓴다. 브라우저에서는 JSONP 로만 받을 수 있다.
 export const DEEZER = {
   search: 'https://api.deezer.com/search',
   track: 'https://api.deezer.com/track/',
   limit: 5,
 };
-// 아이폰·아이팟(그리고 모바일 모드 아이패드)인지. 데스크톱 모드 아이패드는 Mac 으로 보여 iTunes 가 된다
-export const IS_IOS_MOBILE = /iPhone|iPod|iPad.*Mobile/.test(navigator.userAgent);
 
 // 외부 라이브러리 (버전 고정)
 export const CDN = {
