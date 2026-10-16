@@ -59,8 +59,8 @@ const fail = (req, status, code, message) => json(req, status, { ok: false, code
 
 async function getJSON(url, init = {}) {
   const res = await fetch(url, { ...init, redirect: 'manual' });
-  if (res.status === 403 || res.status === 429) throw Object.assign(new Error('limit'), { code: 'limit' });
-  if (!res.ok) throw Object.assign(new Error('HTTP ' + res.status), { code: 'upstream' });
+  if (res.status === 403 || res.status === 429) throw Object.assign(new Error('limit'), { code: 'limit', status: res.status });
+  if (!res.ok) throw Object.assign(new Error('HTTP ' + res.status), { code: 'upstream', status: res.status });
   const text = await res.text();
   try {
     return JSON.parse(text);
@@ -232,7 +232,9 @@ export default {
       return fail(req, 404, 'not_found', '없는 주소예요.');
     } catch (e) {
       // 바깥 API 실패. 인증키나 원본 응답은 돌려주지 않는다
-      return fail(req, 502, e.code || 'upstream', e.code === 'limit' ? '바깥 서버가 잠깐 막았어요.' : '바깥 서버에서 정보를 받지 못했어요.');
+      const res = fail(req, 502, e.code || 'upstream', e.code === 'limit' ? '바깥 서버가 잠깐 막았어요.' : '바깥 서버에서 정보를 받지 못했어요.');
+      if (e.status) res.headers.set('X-Upstream-Status', String(e.status)); // 원인 확인용 (응답 번호만)
+      return res;
     }
   },
 };
