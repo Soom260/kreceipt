@@ -35,7 +35,7 @@ await page.waitForURL(/#make-3/);
 await page.fill('#nick', '숨');
 await page.fill('#message', '오늘도 잘 썼다');
 await page.fill('#song-q', 'IU');
-await page.waitForSelector('#song-results .song, #song-state .state', { timeout: 15000 });
+await page.waitForSelector('#song-results .song, #song-state .state--error, #song-state .state--empty', { timeout: 30000 });
 const songCount = await page.$$eval('#song-results .song', (e) => e.length);
 log('노래 검색 결과', songCount, '곡');
 if (songCount) await page.click('#song-results .song .pick-btn');

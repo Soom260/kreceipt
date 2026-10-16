@@ -33,7 +33,7 @@ for (const t of targets) {
   await p.fill('#message', '오늘도 잘 썼다');
   await p.fill('#song-q', 'IU');
   await p.tap('#song-go');
-  await p.waitForSelector('#song-results .song, #song-state .state', { timeout: 20000 });
+  await p.waitForSelector('#song-results .song, #song-state .state--error, #song-state .state--empty', { timeout: 30000 });
   await snap('4-step3');
   if (await p.$('#song-results .song .pick-btn')) await p.tap('#song-results .song .pick-btn');
   await p.tap('#to-step4');

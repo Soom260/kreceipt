@@ -2,6 +2,8 @@
 // 노래 블록 자리만 만들어 두고, 노래 정보 채우기는 music.js 가 한다.
 // 모양은 개인 홈페이지 kreceipt 카드 그대로. 화면에 나올 때 인쇄되듯 나오고 합계 숫자가 올라간다.
 
+import { MOODS, WEATHER } from './config.js';
+
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
 export const formatWon = (n) => n.toLocaleString('ko-KR');
@@ -52,10 +54,22 @@ export function renderReceipt(data, { flat = false, animate = true } = {}) {
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const r = el('article', 'receipt' + (flat ? ' receipt--flat' : '') + (animate && !reduce ? ' is-printing' : ''));
   const total = totalOf(data);
-  r.setAttribute('aria-label', `${data.d} 영수증, 항목 ${data.i.length}개, 합계 ${formatWon(total)}원`);
+  const mood = data.f && MOODS.find(([k]) => k === data.f);
+  const wx = data.w && WEATHER[data.w.c];
+  const extra = [
+    wx ? `날씨 ${wx[1]} ${data.w.k === 'x' ? '최고 ' : ''}${data.w.t}도` : '',
+    mood ? `기분 ${mood[2]}` : '',
+  ].filter(Boolean).join(', ');
+  r.setAttribute('aria-label', `${data.d} 영수증, ${extra ? extra + ', ' : ''}항목 ${data.i.length}개, 합계 ${formatWon(total)}원`);
 
   r.append(el('div', 'receipt__brand', 'KRECEIPT'));
-  r.append(el('div', 'receipt__meta', formatDay(data.d)));
+  // 날짜 줄: 2026-10-16 · THU · ☀️ 21° · 🥰
+  const meta = [formatDay(data.d)];
+  if (wx) meta.push(`${wx[0]} ${data.w.t}°`);
+  if (mood) meta.push(mood[1]);
+  const metaEl = el('div', 'receipt__meta', meta.join(' · '));
+  metaEl.setAttribute('aria-hidden', 'true'); // 내용은 영수증 전체 설명(aria-label)에 있음
+  r.append(metaEl);
   r.append(el('hr', 'receipt__rule'));
 
   const list = el('div', 'receipt__items');

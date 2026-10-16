@@ -1,7 +1,7 @@
 // "영수증 만들기" 4단계를 연결하는 파일.
 // 1 가져오기(캡처·샘플·직접 입력) → 2 확인하고 고르기 → 3 한마디와 노래 → 4 완성·공유
 
-import { LIMITS } from './config.js';
+import { LIMITS, MOODS, WEATHER } from './config.js';
 import { showLoading, updateLoading, showEmpty, showError, clearState, reportState, confetti } from './states.js';
 import { checkFile, checkName, parseAmount, checkTime, normalizeTime, checkMessage, checkNick, checkSelection, setFieldError, clearFieldError, showBlockError, charCount } from './validate.js';
 import { recognizeImage } from './ocr.js';
@@ -11,6 +11,8 @@ import { buildReceipt, encodeReceipt, linkFor, shareLink } from './share.js';
 import { addToBox, getNick, setNick } from './storage.js';
 import { renderReceipt, formatDayKo } from './receipt.js';
 import { makeReceiptImage, downloadImage } from './image.js';
+import { getPosition, placeFromCoords, placeFromStation, fetchWeather } from './weather.js';
+import { REGIONS } from './places.js';
 
 const $ = (id) => document.getElementById(id);
 const pad = (n) => String(n).padStart(2, '0');
@@ -20,7 +22,7 @@ export const todayStr = () => { const t = new Date(); return `${t.getFullYear()}
 let draft = null;
 let rowSeq = 0;
 function newDraft() {
-  return { rows: null, date: todayStr(), dayNote: '', items: null, song: null, data: null, code: null, savedKey: null };
+  return { rows: null, date: todayStr(), dayNote: '', items: null, song: null, mood: null, weather: null, data: null, code: null, savedKey: null };
 }
 draft = newDraft();
 
@@ -338,7 +340,7 @@ function toStep4() {
   if (mMsg) setFieldError(msg, mMsg, { focus: false }); else clearFieldError(msg);
   if (nMsg || mMsg) { (nMsg ? nick : msg).focus(); return; }
 
-  const data = buildReceipt({ date: draft.date, nick: nick.value, items: draft.items, message: msg.value, song: draft.song });
+  const data = buildReceipt({ date: draft.date, nick: nick.value, items: draft.items, message: msg.value, song: draft.song, mood: draft.mood, weather: draft.weather && draft.weather.w });
   const code = encodeReceipt(data);
   if (code.length > LIMITS.linkMax) {
     showBlockError($('make-error'), `링크가 너무 길어져요 (지금 ${code.length.toLocaleString()}자, 최대 ${LIMITS.linkMax.toLocaleString()}자). 이전 단계에서 항목 수를 줄이거나, 항목 이름·한마디를 짧게 해 주세요.`);
@@ -359,7 +361,127 @@ function toStep4() {
   location.hash = '#make-4';
 }
 
+// ───────── 3단계: 오늘의 기분 ─────────
+function renderMoods() {
+  const grid = $('mood-grid');
+  grid.replaceChildren(...MOODS.map(([key, emoji, label], k) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'mood';
+    b.dataset.mood = key;
+    b.style.setProperty('--i', k);
+    b.setAttribute('aria-pressed', String(draft.mood === key));
+    b.innerHTML = '<span class="mood__emoji" aria-hidden="true"></span><span class="mood__label"></span>';
+    b.firstChild.textContent = emoji;
+    b.lastChild.textContent = label;
+    b.addEventListener('click', () => {
+      draft.mood = draft.mood === key ? null : key; // 다시 누르면 선택 풀기
+      grid.querySelectorAll('.mood').forEach((m) => m.setAttribute('aria-pressed', String(m.dataset.mood === draft.mood)));
+    });
+    return b;
+  }));
+}
+
+// ───────── 3단계: 그날의 날씨 ─────────
+const WHY_GEO = {
+  denied: '위치 권한을 허용하지 않았어요.',
+  unsupported: '이 브라우저는 위치 기능을 지원하지 않아요. (카카오톡 안 브라우저 등)',
+  timeout: '위치를 찾는 데 시간이 너무 오래 걸렸어요.',
+  unavailable: '지금 위치를 알 수 없어요.',
+  outside: '지금 위치가 우리나라 밖이라 기상청 날씨를 찾을 수 없어요.',
+};
+const WHY_WX = {
+  offline: '인터넷에 연결되어 있지 않아요.',
+  timeout: '날씨 서버가 제때 답하지 않았어요.',
+  server: '날씨 서버(기상청)에서 정보를 받지 못했어요.',
+  network: '날씨 서버에 연결하지 못했어요.',
+  bad: '날씨를 찾을 수 없는 날짜이거나 위치예요.',
+};
+
+function renderWeatherPicked() {
+  const box = $('weather-picked');
+  const wx = draft.weather;
+  box.hidden = !wx;
+  if (!wx) { box.replaceChildren(); return; }
+  const [icon, label] = WEATHER[wx.w.c];
+  const text = document.createElement('span');
+  text.className = 'weather-picked__text';
+  text.innerHTML = '<span class="weather-picked__icon" aria-hidden="true"></span><span><b></b><small></small></span>';
+  text.querySelector('.weather-picked__icon').textContent = icon;
+  text.querySelector('b').textContent = `${label} ${wx.w.t}°`;
+  text.querySelector('small').textContent = `${wx.place} 근처 · ${wx.w.kind === 'max' ? '그날 최고 기온' : '지금 기온'}`;
+  const rm = document.createElement('button');
+  rm.type = 'button';
+  rm.className = 'btn btn--small btn--soft';
+  rm.textContent = '빼기';
+  rm.setAttribute('aria-label', '날씨 빼기');
+  rm.addEventListener('click', () => { draft.weather = null; $('weather-region').value = ''; renderWeatherPicked(); $('weather-gps').focus(); });
+  box.replaceChildren(text, rm);
+}
+
+async function loadWeather(getPlace, source) {
+  const state = $('weather-state');
+  draft.weather = null;
+  renderWeatherPicked();
+  showLoading(state, { where: '날씨', text: source === 'gps' ? '위치를 확인하고 날씨를 찾는 중…' : '날씨를 찾는 중…' });
+  let place;
+  try {
+    place = await getPlace();
+  } catch (e) {
+    showError(state, {
+      where: '날씨',
+      what: '위치를 확인하지 못했어요.',
+      why: WHY_GEO[e.kind] || WHY_GEO.unavailable,
+      todo: e.kind === 'denied' ? '브라우저 설정에서 위치 권한을 허용하거나, 아래에서 지역을 골라 주세요.' : '아래에서 지역을 골라 주세요. 날씨 없이 만들어도 돼요.',
+      onRetry: () => loadWeather(getPlace, source),
+      actions: [{ label: '지역 고르기', onClick: () => $('weather-region').focus() }],
+    });
+    return;
+  }
+  try {
+    const w = await fetchWeather(draft.date, place);
+    if (!w) {
+      showEmpty(state, {
+        where: '날씨',
+        title: `${formatDayKo(draft.date)} ${place.name} 날씨 기록을 찾지 못했어요.`,
+        desc: '어제 기록은 기상청에 다음 날 오전쯤 올라와요. 다른 지역을 고르거나 날씨 없이 만들어도 돼요.',
+        actions: [{ label: '다른 지역 고르기', onClick: () => $('weather-region').focus() }],
+      });
+      return;
+    }
+    draft.weather = { date: draft.date, place: place.name, w };
+    clearState(state, '날씨');
+    renderWeatherPicked();
+  } catch (e) {
+    showError(state, {
+      where: '날씨',
+      what: '날씨를 불러오지 못했어요.',
+      why: WHY_WX[e.kind] || WHY_WX.network,
+      todo: '잠시 뒤 다시 시도해 주세요. 날씨 없이 영수증을 만들어도 돼요.',
+      onRetry: () => loadWeather(getPlace, source),
+    });
+  }
+}
+
+function setupWeather() {
+  const sel = $('weather-region');
+  const opts = [new Option('지역 선택', '')].concat(REGIONS.map(([name, stn]) => new Option(name, String(stn))));
+  sel.replaceChildren(...opts);
+  $('weather-gps').addEventListener('click', () => {
+    sel.value = '';
+    // 좌표는 이 안에서 격자·관측소 번호로 바꾸고 버린다
+    loadWeather(async () => { const { lat, lon } = await getPosition(); return placeFromCoords(lat, lon); }, 'gps');
+  });
+  sel.addEventListener('change', () => {
+    if (!sel.value) return;
+    const stn = Number(sel.value);
+    loadWeather(async () => placeFromStation(stn), 'region');
+  });
+}
+
 function setupStep3() {
+  renderMoods();
+  setupWeather();
   $('message').addEventListener('input', () => { updateCounter(); if ($('message').getAttribute('aria-invalid')) clearFieldError($('message')); });
   $('nick').addEventListener('input', () => { if ($('nick').getAttribute('aria-invalid')) clearFieldError($('nick')); });
   picker = setupSongPicker({
@@ -424,6 +546,9 @@ function setupStep4() {
     clearState($('song-state'));
     updateCounter();
     picker.renderPicked();
+    $('weather-region').value = '';
+    clearState($('weather-state'));
+    renderWeatherPicked();
     location.hash = '#make-1';
   });
 }
@@ -490,6 +615,13 @@ export function enterStep(n) {
     renderRows();
   }
   if (n === 3) {
+    renderMoods();
+    if (draft.weather && draft.weather.date !== draft.date) {
+      draft.weather = null;
+      $('weather-region').value = '';
+      showEmpty($('weather-state'), { where: '날씨', title: '영수증 날짜가 바뀌어서 날씨를 뺐어요.', desc: '바뀐 날짜의 날씨를 다시 넣어 주세요.', actions: [] });
+    }
+    renderWeatherPicked();
     if (!$('nick').value) $('nick').value = getNick();
     updateCounter();
     picker.renderPicked();

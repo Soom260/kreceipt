@@ -312,6 +312,99 @@ const shot = (page, name) => page.screenshot({ path: `out/${name}.png`, fullPage
   await ctx.close();
 }
 
+// 15) 오늘의 기분 + 그날의 날씨 (위치 허용 / 지역 고르기 / 위치 거부)
+{
+  const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+  const ctx = await browser.newContext({ viewport: { width: 360, height: 780 }, geolocation: { latitude: 37.5973, longitude: 127.0588 }, permissions: ['geolocation'] });
+  const p = await ctx.newPage();
+  p.on('pageerror', (e) => record('페이지 오류 없음(날씨)', false, e.message));
+  await p.goto(BASE + '#home');
+  await p.click('#view-home [data-manual]');
+  await p.fill('#day-date', today);
+  await p.fill('#rows .tx__cell--name input', '김밥');
+  await p.fill('#rows .tx__cell--amount input', '3500');
+  await p.click('#to-step3');
+  await p.waitForURL(/#make-3/);
+  await p.click('.mood[data-mood="love"]');
+  record('기분 고르기: 누른 것만 선택됨', (await p.getAttribute('.mood[data-mood="love"]', 'aria-pressed')) === 'true' && (await p.$$('.mood[aria-pressed="true"]')).length === 1);
+  await p.click('.mood[data-mood="love"]');
+  record('기분 다시 누르면 선택 풀림', (await p.$$('.mood[aria-pressed="true"]')).length === 0);
+  await p.click('.mood[data-mood="love"]');
+  await p.click('#weather-gps');
+  await p.waitForSelector('#weather-picked:not([hidden]), #weather-state .state--error, #weather-state .state--empty', { timeout: 20000 });
+  const picked = await p.textContent('#weather-picked');
+  record('위치 허용: 오늘 날씨(지금 기온) 표시', /°/.test(picked) && /지금 기온/.test(picked), picked.replace(/\s+/g, ' ').trim());
+  await shot(p, 'weather-picked');
+  await p.click('#to-step4');
+  await p.waitForURL(/#make-4/);
+  const meta = await p.textContent('#my-receipt .receipt__meta');
+  record('영수증 날짜 줄: 날짜 · 요일 · 날씨 · 기분', /·.*°.*🥰/.test(meta), meta);
+  const label = await p.getAttribute('#my-receipt .receipt', 'aria-label');
+  record('화면낭독기 설명에 날씨·기분', /날씨 .*도/.test(label) && /기분 설렘/.test(label), label);
+  // 링크로 열어도 같은 줄 (서버를 다시 부르지 않음)
+  await p.click('#share-link');
+  await p.waitForTimeout(400);
+  const code = await p.evaluate(() => {
+    const c = document.querySelector('#my-receipt .receipt');
+    return c ? location.hash : '';
+  });
+  await shot(p, 'weather-receipt');
+  await ctx.close();
+
+  // 지역 고르기 + 지난 날짜
+  const ctx2 = await browser.newContext({ viewport: { width: 360, height: 780 } });
+  const p2 = await ctx2.newPage();
+  await p2.goto(BASE + '#home');
+  await p2.click('#view-home [data-manual]');
+  await p2.fill('#day-date', '2026-10-10');
+  await p2.fill('#rows .tx__cell--name input', '김밥');
+  await p2.fill('#rows .tx__cell--amount input', '3500');
+  await p2.click('#to-step3');
+  await p2.selectOption('#weather-region', '159');
+  await p2.waitForSelector('#weather-picked:not([hidden]), #weather-state .state--error, #weather-state .state--empty', { timeout: 20000 });
+  const pk2 = await p2.textContent('#weather-picked');
+  record('지역 고르기(부산)·지난 날짜: 그날 최고 기온', /부산/.test(pk2) && /최고 기온/.test(pk2), pk2.replace(/\s+/g, ' ').trim());
+  // 날짜를 바꾸면 날씨가 빠짐
+  await p2.click('#view-make-3 .cta a');
+  await p2.fill('#day-date', '2026-10-11');
+  await p2.click('#to-step3');
+  await p2.waitForURL(/#make-3/);
+  await p2.waitForSelector('#weather-state .state--empty');
+  record('영수증 날짜를 바꾸면 날씨를 빼고 안내', /날짜가 바뀌어서/.test(await p2.textContent('#weather-state')) && (await p2.isHidden('#weather-picked')));
+  await ctx2.close();
+
+  // 위치 거부
+  const ctx3 = await browser.newContext({ viewport: { width: 360, height: 780 }, permissions: [] });
+  const p3 = await ctx3.newPage();
+  await p3.goto(BASE + '#home');
+  await p3.click('#view-home [data-manual]');
+  await p3.fill('#rows .tx__cell--name input', '김밥');
+  await p3.fill('#rows .tx__cell--amount input', '3500');
+  await p3.click('#to-step3');
+  await p3.evaluate(() => { navigator.geolocation.getCurrentPosition = (ok, err) => err({ code: 1, message: 'denied' }); });
+  await p3.click('#weather-gps');
+  await p3.waitForSelector('#weather-state .state--error', { timeout: 10000 });
+  record('위치 거부: 무슨 일·왜·할 일 + 지역 고르기', /허용하지 않았어요/.test(await p3.textContent('#weather-state')) && /지역 고르기/.test(await p3.textContent('#weather-state')));
+  record('360px 3단계(기분·날씨) 가로 넘침 없음', (await overflow(p3)) <= 0);
+  await shot(p3, 'weather-denied');
+  await ctx3.close();
+
+  // ?sim=error: 날씨 실패해도 영수증은 만들어짐
+  const ctx4 = await browser.newContext({ viewport: { width: 360, height: 780 } });
+  const p4 = await ctx4.newPage();
+  await p4.goto(BASE + '?sim=error#home');
+  await p4.click('#view-home [data-manual]');
+  await p4.fill('#rows .tx__cell--name input', '김밥');
+  await p4.fill('#rows .tx__cell--amount input', '3500');
+  await p4.click('#to-step3');
+  await p4.selectOption('#weather-region', '108');
+  await p4.waitForSelector('#weather-state .state--error', { timeout: 10000 });
+  await p4.click('#to-step4');
+  await p4.waitForURL(/#make-4/);
+  record('sim=error: 날씨 오류 + 영수증은 그대로 만들어짐', true);
+  await ctx4.close();
+}
+
 await browser.close();
 const fail = results.filter((r) => !r.ok).length;
 console.log(`\n${results.length - fail}/${results.length} 통과`);

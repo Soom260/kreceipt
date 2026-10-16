@@ -9,6 +9,9 @@ private/
 node_modules/
 tools/node_modules/
 tools/out/
+worker/node_modules/
+worker/.wrangler/
+.dev.vars
 test-results/
 playwright-report/
 

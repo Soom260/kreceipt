@@ -356,6 +356,29 @@ textarea.input { resize: vertical; line-height: 1.5; }
   clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 
+/* ───────── 3단계: 기분·날씨 ───────── */
+.mood-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.45rem; margin-top: 0.5rem; }
+.mood {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.1rem;
+  min-height: 72px; padding: 0.4rem 0.2rem; border: 0; border-radius: 16px;
+  background: var(--fill); color: var(--sub); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  transition: transform .2s var(--spring), background .2s var(--ease), box-shadow .2s var(--ease);
+  animation: rise .4s var(--ease) both; animation-delay: calc(var(--i, 0) * 35ms);
+}
+.mood__emoji { font-size: 1.6rem; line-height: 1.2; transition: transform .3s var(--spring); }
+.mood:active { transform: scale(.94); }
+.mood[aria-pressed="true"] { background: var(--pink); color: var(--pink-ink); box-shadow: inset 0 0 0 2px var(--pink-line); }
+.mood[aria-pressed="true"] .mood__emoji { transform: scale(1.18) rotate(-6deg); }
+@media (hover: hover) { .mood:hover { background: #efe8e8; } }
+.label--sub { font-size: 0.88rem; font-weight: 600; color: var(--sub); margin: 0.9rem 0 0.3rem; }
+.select { background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 20px) 50%, calc(100% - 14px) 50%; background-size: 6px 6px; background-repeat: no-repeat; padding-right: 2.4rem; }
+.weather-picked { justify-content: space-between; }
+.weather-picked__text { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
+.weather-picked__icon { font-size: 1.8rem; width: 48px; height: 48px; display: grid; place-items: center; background: #fff; border-radius: 14px; flex: 0 0 auto; }
+.weather-picked b { display: block; font-size: 1rem; }
+.weather-picked small { display: block; color: var(--muted); font-size: 0.8rem; }
+
 /* ───────── 3단계: 노래 ───────── */
 .song-form { display: flex; gap: 0.45rem; align-items: stretch; }
 .song-form .input { flex: 1 1 auto; min-width: 0; }

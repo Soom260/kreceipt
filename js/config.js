@@ -45,6 +45,23 @@ export const DEEZER = {
   limit: 5,
 };
 
+// 우리 서버 (Cloudflare Worker, worker/ 폴더). 노래 검색 중계와 기상청 날씨를 맡는다.
+// 인증키는 여기 없다 — GitHub Secrets → 배포 때 서버 비밀 값으로 들어간다.
+export const API_BASE = 'https://kreceipt-api.soom260.workers.dev';
+export const API_TIMEOUT_MS = 9000;
+
+// 오늘의 기분 (링크에는 짧은 이름만 담는다)
+export const MOODS = [
+  ['love', '🥰', '설렘'], ['good', '😊', '좋음'], ['fun', '🥳', '신남'], ['calm', '😌', '평온'],
+  ['tired', '😴', '피곤'], ['sad', '🥲', '아쉬움'], ['mad', '😤', '짜증'], ['busy', '🤯', '정신없음'],
+];
+
+// 날씨 종류 → 그림·이름
+export const WEATHER = {
+  sun: ['☀️', '맑음'], cloud: ['⛅', '구름 많음'], overcast: ['☁️', '흐림'],
+  rain: ['🌧️', '비'], snow: ['❄️', '눈'], sleet: ['🌨️', '비 또는 눈'],
+};
+
 // 외부 라이브러리 (버전 고정)
 export const CDN = {
   tesseract: 'https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/tesseract.min.js',

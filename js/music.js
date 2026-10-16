@@ -4,7 +4,7 @@
 // iTunes 검색이 실패하면(아이폰에서 Apple 이 음악 앱으로 돌려보내는 경우 등) Deezer 로 다시 찾는다 (곡마다 출처 src 를 기억).
 // 호출 제한(분당 약 20회)이 있어 검색은 입력 후 잠깐 기다렸다가(디바운스) 보낸다.
 
-import { ITUNES, DEEZER, LIMITS, SEARCH_DEBOUNCE_MS, SIM, SIM_SLOW_MS, wait } from './config.js';
+import { ITUNES, DEEZER, API_BASE, API_TIMEOUT_MS, LIMITS, SEARCH_DEBOUNCE_MS, SIM, SIM_SLOW_MS, wait } from './config.js';
 import { showLoading, showEmpty, showError, clearState, reportState } from './states.js';
 import { setFieldError, clearFieldError } from './validate.js';
 
@@ -123,14 +123,48 @@ async function searchItunes(term, signal) {
   return (data.results || []).filter((r) => r.trackId).map(normalize);
 }
 
-// 모든 기기에서 iTunes 먼저 → 막히거나(연결·호출 제한·서버 문제) 실패하면 Deezer 로 한 번 더
+// 우리 서버(Cloudflare Worker)를 거쳐 iTunes 부르기
+async function viaServer(path, signal) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), API_TIMEOUT_MS);
+  if (signal) signal.addEventListener('abort', () => ctrl.abort());
+  try {
+    const res = await fetch(`${API_BASE}${path}`, { signal: ctrl.signal });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data || !data.ok) throw Object.assign(new Error((data && data.code) || 'HTTP ' + res.status), { kind: data && data.code === 'limit' ? 'limit' : 'server' });
+    return data;
+  } catch (e) {
+    if (!e.kind) e.kind = signal && signal.aborted ? 'abort' : 'network';
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// 노래 찾기 순서: ① 브라우저에서 iTunes 직접 → ② 우리 서버를 거쳐 iTunes → ③ Deezer (마지막 대안)
+// ①은 PC·안드로이드에서 잘 되고, 아이폰은 Apple 이 음악 앱으로 돌려보낼 때가 있어 ②로 넘어간다.
+// ②는 서버가 다른 이용자와 주소를 함께 써서 Apple 호출 제한(429)에 걸릴 때가 있다 (2026-10-16 확인).
 export async function searchSongs(term, signal) {
   if (SIM.empty) { if (SIM.slow) await wait(SIM_SLOW_MS); return []; }
+  const errors = [];
   try {
     return await searchItunes(term, signal);
   } catch (e) {
     if (e.kind === 'abort' || SIM.error) throw e;
-    return searchDeezer(term, signal);
+    errors.push('direct:' + (e.detail || e.message));
+  }
+  try {
+    const data = await viaServer(`/songs?${new URLSearchParams({ term })}`, signal);
+    return data.results || [];
+  } catch (e) {
+    if (e.kind === 'abort') throw e;
+    errors.push('server:' + e.message);
+  }
+  try {
+    return await searchDeezer(term, signal);
+  } catch (e) {
+    e.detail = errors.concat('deezer:' + e.message).join(' / ');
+    throw e;
   }
 }
 
@@ -140,10 +174,16 @@ export async function lookupSong(id, src = 'it') {
     const t = await getDeezer(`${DEEZER.track}${encodeURIComponent(id)}`);
     return t && t.id === id ? normalizeDeezer(t) : null;
   }
-  const q = new URLSearchParams({ id: String(id), country: ITUNES.country });
-  const data = await getJSON(`${ITUNES.lookup}?${q}`);
-  const r = (data.results || []).find((x) => x.trackId === id);
-  return r ? normalize(r) : null;
+  try {
+    const q = new URLSearchParams({ id: String(id), country: ITUNES.country });
+    const data = await getJSON(`${ITUNES.lookup}?${q}`);
+    const r = (data.results || []).find((x) => x.trackId === id);
+    return r ? normalize(r) : null;
+  } catch (e) {
+    if (SIM.error) throw e;
+    const data = await viaServer(`/song?id=${encodeURIComponent(id)}`);
+    return data.result || null;
+  }
 }
 
 // ───────── 미리듣기 재생 (한 번에 한 곡) ─────────

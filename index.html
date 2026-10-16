@@ -22,29 +22,31 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <!-- 본문 글꼴 Pretendard 1.3.9 (SIL OFL) -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="css/style.css?v=202610161309">
+<link rel="stylesheet" href="css/style.css?v=202610162037">
 <!-- 링크 압축 라이브러리 (버전 고정 + 무결성 확인) -->
 <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js" integrity="sha384-0d+Gr7vM4Drod8E3hXKgciWJSWbjD/opKLLygI9ktiWbuvlDwQLzU46wJ9s5gsp7" crossorigin="anonymous"></script>
 <!-- 새로 올릴 때마다 v= 값을 바꾸면 휴대전화가 옛 파일 대신 새 파일을 받는다 (tools/bump-version.mjs) -->
 <script type="importmap">
 { "imports": {
-  "./js/app.js": "./js/app.js?v=202610161309",
-  "./js/box.js": "./js/box.js?v=202610161309",
-  "./js/config.js": "./js/config.js?v=202610161309",
-  "./js/image.js": "./js/image.js?v=202610161309",
-  "./js/maker.js": "./js/maker.js?v=202610161309",
-  "./js/music.js": "./js/music.js?v=202610161309",
-  "./js/ocr.js": "./js/ocr.js?v=202610161309",
-  "./js/parse.js": "./js/parse.js?v=202610161309",
-  "./js/receipt.js": "./js/receipt.js?v=202610161309",
-  "./js/share.js": "./js/share.js?v=202610161309",
-  "./js/states.js": "./js/states.js?v=202610161309",
-  "./js/storage.js": "./js/storage.js?v=202610161309",
-  "./js/validate.js": "./js/validate.js?v=202610161309",
-  "./js/viewer.js": "./js/viewer.js?v=202610161309"
+  "./js/app.js": "./js/app.js?v=202610162037",
+  "./js/box.js": "./js/box.js?v=202610162037",
+  "./js/config.js": "./js/config.js?v=202610162037",
+  "./js/image.js": "./js/image.js?v=202610162037",
+  "./js/maker.js": "./js/maker.js?v=202610162037",
+  "./js/music.js": "./js/music.js?v=202610162037",
+  "./js/ocr.js": "./js/ocr.js?v=202610162037",
+  "./js/parse.js": "./js/parse.js?v=202610162037",
+  "./js/receipt.js": "./js/receipt.js?v=202610162037",
+  "./js/share.js": "./js/share.js?v=202610162037",
+  "./js/states.js": "./js/states.js?v=202610162037",
+  "./js/storage.js": "./js/storage.js?v=202610162037",
+  "./js/validate.js": "./js/validate.js?v=202610162037",
+  "./js/viewer.js": "./js/viewer.js?v=202610162037",
+  "./js/weather.js": "./js/weather.js?v=202610162037",
+  "./js/places.js": "./js/places.js?v=202610162037"
 } }
 </script>
-<script type="module" src="./js/app.js?v=202610161309"></script>
+<script type="module" src="./js/app.js?v=202610162037"></script>
 </head>
 <body>
 
@@ -174,10 +176,27 @@
   <section class="view" id="view-make-3" data-view="make-3" hidden aria-labelledby="m3-title">
     <div class="stepper" style="--from:50%;--to:75%">
       <div class="stepper__bar" aria-hidden="true"><i></i></div>
-      <p class="stepper__label">3 / 4 · 한마디와 노래</p>
+      <p class="stepper__label">3 / 4 · 기분·날씨·한마디·노래</p>
     </div>
-    <h1 id="m3-title" tabindex="-1">한마디와 노래</h1>
-    <p class="lead">둘 다 비워 둬도 괜찮아요.</p>
+    <h1 id="m3-title" tabindex="-1">오늘을 더해요</h1>
+    <p class="lead">기분·날씨·한마디·노래 모두 골라도 되고, 비워 둬도 괜찮아요.</p>
+
+    <!-- 오늘의 기분: 다시 누르면 선택이 풀린다 -->
+    <div class="field card">
+      <p class="label" id="mood-label">오늘의 기분 <span class="opt">(선택)</span></p>
+      <div class="mood-grid" id="mood-grid" role="group" aria-labelledby="mood-label"></div>
+    </div>
+
+    <!-- 그날의 날씨: 위치(약 5km 단위로만 사용) 또는 지역 고르기 -->
+    <div class="field card" id="weather-card">
+      <p class="label" id="weather-label">그날의 날씨 <span class="opt">(선택)</span></p>
+      <p class="hint" id="weather-hint">위치는 약 5km 칸으로만 바꿔 날씨를 찾는 데 쓰고, 어디에도 저장하지 않아요.</p>
+      <button type="button" class="btn btn--soft btn--block" id="weather-gps" aria-describedby="weather-hint"><span aria-hidden="true">📍</span> 내 위치로 날씨 넣기</button>
+      <label for="weather-region" class="label label--sub">또는 지역 고르기</label>
+      <select id="weather-region" class="input select"></select>
+      <div class="picked weather-picked" id="weather-picked" hidden></div>
+      <div class="state-box" id="weather-state" aria-live="polite"></div>
+    </div>
 
     <div class="field card">
       <label for="nick" class="label">보내는 사람 이름 <span class="opt">(선택)</span></label>
@@ -305,7 +324,7 @@
 
 <footer class="foot">
   <p>kreceipt · 기술개발연구프로젝트 중간 MVP</p>
-  <p>캡처는 업로드하지 않고, 영수증은 어떤 서버에도 저장하지 않아요. 노래 정보: iTunes Search API, Deezer API.</p>
+  <p>캡처는 업로드하지 않고, 영수증은 어떤 서버에도 저장하지 않아요. 날씨: 기상청(공공데이터포털). 노래 정보: iTunes Search API, Deezer API.</p>
 </footer>
 
 <!-- 휴대전화에서 "이미지로 저장"을 누르면 뜨는 창: 이미지를 꾹 눌러 저장 -->
