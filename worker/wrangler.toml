@@ -1,0 +1,5 @@
+# kreceipt 서버(Cloudflare Worker) 설정. 인증키는 여기 적지 않는다 (GitHub Secrets → 배포 때 Worker 비밀 값으로).
+name = "kreceipt-api"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
