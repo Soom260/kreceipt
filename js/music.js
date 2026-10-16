@@ -1,15 +1,17 @@
 // "오늘의 노래" — iTunes Search API 로 노래를 찾고, 30초 미리듣기를 재생하는 파일.
 // 인증키가 필요 없는 공개 API. 브라우저에서 바로 호출된다 (2026-10-14 확인: Access-Control-Allow-Origin: *).
 // fetch 가 막히는 환경을 위해 JSONP 우회로도 둔다.
+// 아이폰은 Apple 이 검색을 음악 앱으로 돌려보내므로 Deezer 로 찾는다 (곡마다 출처 src 를 기억).
 // 호출 제한(분당 약 20회)이 있어 검색은 입력 후 잠깐 기다렸다가(디바운스) 보낸다.
 
-import { ITUNES, LIMITS, SEARCH_DEBOUNCE_MS, SIM, SIM_SLOW_MS, wait } from './config.js';
+import { ITUNES, DEEZER, IS_IOS_MOBILE, LIMITS, SEARCH_DEBOUNCE_MS, SIM, SIM_SLOW_MS, wait } from './config.js';
 import { showLoading, showEmpty, showError, clearState, reportState } from './states.js';
 import { setFieldError, clearFieldError } from './validate.js';
 
 // iTunes 결과 한 줄 → 앱에서 쓰는 모양
 function normalize(r) {
   return {
+    src: 'it',
     id: r.trackId,
     title: r.trackName || '',
     artist: r.artistName || '',
@@ -18,6 +20,22 @@ function normalize(r) {
     url: r.trackViewUrl || '',
   };
 }
+
+// Deezer 결과 한 곡 → 같은 모양
+function normalizeDeezer(t) {
+  return {
+    src: 'dz',
+    id: t.id,
+    title: t.title || '',
+    artist: (t.artist && t.artist.name) || '',
+    cover: (t.album && (t.album.cover_medium || t.album.cover_small)) || '',
+    preview: t.preview || '',
+    url: t.link || '',
+  };
+}
+
+// 출처별 표시 이름 (화면의 "○○에서 보기" 링크)
+export const SOURCE_NAME = { it: 'Apple Music', dz: 'Deezer' };
 
 // 1차: fetch 로 받기
 async function fetchJSON(url, signal) {
@@ -43,7 +61,7 @@ async function fetchJSON(url, signal) {
 let jsonpSeq = 0;
 function jsonp(url, signal) {
   return new Promise((resolve, reject) => {
-    const name = `__kreceiptItunes${Date.now()}_${++jsonpSeq}`;
+    const name = `__kreceiptSong${Date.now()}_${++jsonpSeq}`;
     const s = document.createElement('script');
     const done = () => { clearTimeout(timer); delete window[name]; s.remove(); };
     const timer = setTimeout(() => { done(); reject(Object.assign(new Error('JSONP timeout'), { kind: 'timeout' })); }, ITUNES.timeoutMs);
@@ -72,23 +90,57 @@ async function getJSON(url, signal) {
   }
 }
 
+// Deezer 는 CORS 를 허용하지 않아 JSONP 로만 받는다. 오류는 { error: {...} } 로 온다
+async function getDeezer(url, signal) {
+  if (SIM.slow) await wait(SIM_SLOW_MS);
+  if (SIM.error) throw Object.assign(new Error('sim-error'), { kind: 'network', detail: 'sim=error' });
+  const data = await jsonp(url + (url.includes('?') ? '&' : '?') + 'output=jsonp', signal);
+  if (data && data.error) {
+    if (data.error.code === 800) return null; // 곡 없음
+    throw Object.assign(new Error(`Deezer ${data.error.code} ${data.error.message}`), { kind: data.error.code === 4 ? 'limit' : 'server' });
+  }
+  return data;
+}
+
 // 실패 종류 → "왜" 문장
 const WHY = {
   offline: '휴대전화(컴퓨터)가 인터넷에 연결되어 있지 않아요.',
-  timeout: `iTunes 서버가 ${ITUNES.timeoutMs / 1000}초 안에 답하지 않았어요. 인터넷이 느릴 수 있어요.`,
-  limit: '짧은 시간에 노래를 너무 많이 찾아서 iTunes가 잠깐 막았어요. (1분에 약 20번까지)',
-  server: 'iTunes 서버에 문제가 생겼어요.',
-  network: '인터넷이 끊겼거나, 브라우저·통신사 설정이 iTunes 연결을 막았을 수 있어요.',
+  timeout: `노래 서버가 ${ITUNES.timeoutMs / 1000}초 안에 답하지 않았어요. 인터넷이 느릴 수 있어요.`,
+  limit: '짧은 시간에 노래를 너무 많이 찾아서 노래 서버가 잠깐 막았어요.',
+  server: '노래 서버에 문제가 생겼어요.',
+  network: '인터넷이 끊겼거나, 브라우저·통신사 설정이 노래 서버 연결을 막았을 수 있어요.',
 };
 
-export async function searchSongs(term, signal) {
-  if (SIM.empty) { if (SIM.slow) await wait(SIM_SLOW_MS); return []; }
+async function searchDeezer(term, signal) {
+  const q = new URLSearchParams({ q: term, limit: String(DEEZER.limit) });
+  const data = await getDeezer(`${DEEZER.search}?${q}`, signal);
+  return ((data && data.data) || []).filter((t) => t.id).map(normalizeDeezer);
+}
+
+async function searchItunes(term, signal) {
   const q = new URLSearchParams({ term, country: ITUNES.country, media: 'music', entity: 'song', limit: String(ITUNES.limit) });
   const data = await getJSON(`${ITUNES.search}?${q}`, signal);
   return (data.results || []).filter((r) => r.trackId).map(normalize);
 }
 
-export async function lookupSong(id) {
+// 아이폰은 바로 Deezer, 그 밖에는 iTunes → 막히거나(연결·호출 제한·서버 문제) 실패하면 Deezer 로 한 번 더
+export async function searchSongs(term, signal) {
+  if (SIM.empty) { if (SIM.slow) await wait(SIM_SLOW_MS); return []; }
+  if (IS_IOS_MOBILE) return searchDeezer(term, signal);
+  try {
+    return await searchItunes(term, signal);
+  } catch (e) {
+    if (e.kind === 'abort' || SIM.error) throw e;
+    return searchDeezer(term, signal);
+  }
+}
+
+// 링크에서 꺼낸 곡 다시 불러오기. src 가 없으면 iTunes (예전 링크와 호환)
+export async function lookupSong(id, src = 'it') {
+  if (src === 'dz') {
+    const t = await getDeezer(`${DEEZER.track}${encodeURIComponent(id)}`);
+    return t && t.id === id ? normalizeDeezer(t) : null;
+  }
   const q = new URLSearchParams({ id: String(id), country: ITUNES.country });
   const data = await getJSON(`${ITUNES.lookup}?${q}`);
   const r = (data.results || []).find((x) => x.trackId === id);
@@ -165,8 +217,9 @@ export async function fillReceiptSong(slot, s, known) {
       link.href = song.url;
       link.target = '_blank';
       link.rel = 'noopener';
-      link.textContent = 'Apple Music에서 보기';
-      link.setAttribute('aria-label', `${song.title} Apple Music에서 보기 (새 창)`);
+      const where = SOURCE_NAME[song.src] || SOURCE_NAME.it;
+      link.textContent = `${where}에서 보기`;
+      link.setAttribute('aria-label', `${song.title} ${where}에서 보기 (새 창)`);
       text.append(link);
     }
     if (errMsg) {
@@ -188,8 +241,9 @@ export async function fillReceiptSong(slot, s, known) {
     slot.replaceChildren(box);
   };
 
-  const base = { id: s.id, title: s.t, artist: s.a, cover: '', preview: '', url: '' };
-  if (known && known.id === s.id) { draw({ ...known, title: s.t, artist: s.a }); return; }
+  const src = s.p === 'dz' ? 'dz' : 'it';
+  const base = { src, id: s.id, title: s.t, artist: s.a, cover: '', preview: '', url: '' };
+  if (known && known.id === s.id && (known.src || 'it') === src) { draw({ ...known, title: s.t, artist: s.a }); return; }
 
   const load = async () => {
     slot.setAttribute('aria-busy', 'true');
@@ -200,7 +254,7 @@ export async function fillReceiptSong(slot, s, known) {
     slot.replaceChildren(sk);
     reportState('영수증 노래', 'loading');
     try {
-      const song = await lookupSong(s.id);
+      const song = await lookupSong(s.id, src);
       slot.removeAttribute('aria-busy');
       if (!song) {
         draw(base, '이 곡의 미리듣기를 찾지 못했어요. 곡 정보가 바뀌었을 수 있어요.');

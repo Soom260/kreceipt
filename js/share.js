@@ -2,7 +2,8 @@
 // # 뒤 내용은 브라우저가 서버로 보내지 않으므로, 영수증은 어떤 서버에도 저장되지 않는다.
 //
 // 링크에 담는 모양 (v1):
-// { v:1, d:"2026-10-14", n:"숨", i:[["아메리카노 ×2", 9000], ...], m:"오늘도 잘 썼다", s:{ id:123, t:"곡명", a:"가수" } }
+// { v:1, d:"2026-10-14", n:"숨", i:[["아메리카노 ×2", 9000], ...], m:"오늘도 잘 썼다", s:{ id:123, t:"곡명", a:"가수", p:"dz" } }
+// s.p 는 노래 출처: 없으면 iTunes, "dz" 면 Deezer (아이폰에서 고른 곡)
 // 금융기관명·계좌·잔액·원본 인식 글자는 절대 담지 않는다.
 
 import { LIMITS } from './config.js';
@@ -16,7 +17,10 @@ export function buildReceipt({ date, nick, items, message, song }) {
   const r = { v: SCHEMA_VERSION, d: date, i: items.map((it) => [it.name.trim(), it.amount]) };
   if (nick && nick.trim()) r.n = nick.trim();
   if (message && message.trim()) r.m = message.trim();
-  if (song) r.s = { id: song.id, t: song.title, a: song.artist };
+  if (song) {
+    r.s = { id: song.id, t: song.title, a: song.artist };
+    if (song.src === 'dz') r.s.p = 'dz';
+  }
   return r;
 }
 
@@ -46,7 +50,7 @@ export function validateReceipt(o) {
   if (o.m !== undefined && (!isStr(o.m) || charCount(o.m) > LIMITS.messageMax)) return '한마디가 올바르지 않음';
   if (o.s !== undefined) {
     const s = o.s;
-    if (!s || !Number.isInteger(s.id) || s.id <= 0 || !isStr(s.t) || !isStr(s.a) || s.t.length > 200 || s.a.length > 200) return '노래 정보가 올바르지 않음';
+    if (!s || !Number.isInteger(s.id) || s.id <= 0 || !isStr(s.t) || !isStr(s.a) || s.t.length > 200 || s.a.length > 200 || (s.p !== undefined && s.p !== 'dz')) return '노래 정보가 올바르지 않음';
   }
   return '';
 }
