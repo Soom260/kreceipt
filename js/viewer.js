@@ -1,16 +1,87 @@
 // 친구에게 받은 링크(#r=...)를 열었을 때 영수증을 보여 주고 "보관하기"를 처리하는 파일.
 
-import { SIM, SIM_SLOW_MS, wait } from './config.js';
+import { SIM, SIM_SLOW_MS, REPLY_STICKERS, wait } from './config.js';
 import { showLoading, showError, clearState, confetti } from './states.js';
 import { decodeReceipt } from './share.js';
-import { addToBox, findInBox, isAvailable } from './storage.js';
+import { addToBox, findInBox, isAvailable, getNick } from './storage.js';
 import { renderReceipt } from './receipt.js';
 import { fillReceiptSong } from './music.js';
 import { saveImage } from './maker.js';
 import { checkNick, setFieldError, clearFieldError } from './validate.js';
+import { receiptId, myReply, sendReply, renderReplies, loadRepliesInto, stickerOf, whyReply } from './reactions.js';
 
 const $ = (id) => document.getElementById(id);
-let current = null; // { code, data }
+let current = null; // { code, data, id(답장용 번호) }
+let sending = false;
+
+// 답장 칸 준비: 내 영수증이면 "받은 답장"만, 친구 영수증이면 스티커 남기기 + 다른 답장
+async function setupReplies(isMine) {
+  const code = current.code;
+  $('reply-title').textContent = isMine ? '받은 답장' : '답장 스티커';
+  $('reply-hint').textContent = isMine
+    ? '친구들이 이 영수증에 남긴 스티커예요.'
+    : '스티커로 보낸 사람에게 마음을 전해요. 링크를 가진 사람은 누구나 답장을 볼 수 있어요.';
+  $('reply-send').hidden = isMine;
+  $('reply-status').textContent = '';
+  $('reply-status').classList.remove('is-error');
+  clearFieldError($('reply-name'));
+  current.id = await receiptId(code);
+  if (!current || current.code !== code) return;
+  if (!isMine) {
+    if (!$('reply-name').value) $('reply-name').value = getNick();
+    renderStickerButtons(myReply(current.id));
+  }
+  loadRepliesInto({
+    code,
+    state: $('reply-state'),
+    list: $('reply-list'),
+    emptyText: isMine ? '링크를 받은 친구가 스티커를 남기면 여기에 보여요.' : '첫 답장을 남겨 보세요.',
+  });
+}
+
+function renderStickerButtons(picked) {
+  $('reply-stickers').replaceChildren(...REPLY_STICKERS.map(([key, emoji, label], k) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'sticker';
+    b.dataset.sticker = key;
+    b.style.setProperty('--i', k);
+    b.setAttribute('aria-pressed', String(picked === key));
+    b.innerHTML = '<span class="sticker__emoji" aria-hidden="true"></span><span class="sticker__label"></span>';
+    b.firstChild.textContent = emoji;
+    b.lastChild.textContent = label;
+    b.addEventListener('click', () => onSticker(key, b));
+    return b;
+  }));
+}
+
+async function onSticker(key, btn) {
+  if (!current || !current.id || sending) return;
+  const nameInp = $('reply-name');
+  const msg = checkNick(nameInp.value);
+  if (msg) { setFieldError(nameInp, msg); return; }
+  clearFieldError(nameInp);
+  const st = $('reply-status');
+  st.classList.remove('is-error');
+  sending = true;
+  $('reply-stickers').querySelectorAll('.sticker').forEach((b) => { b.disabled = true; });
+  btn.classList.add('is-sending');
+  try {
+    const list = await sendReply(current.id, key, nameInp.value.trim());
+    renderStickerButtons(key);
+    $('reply-state').replaceChildren();
+    renderReplies(list, $('reply-list'));
+    const s = stickerOf(key);
+    st.textContent = `${s[1]} "${s[2]}" 답장을 남겼어요. 다른 스티커를 누르면 바뀌어요.`;
+    confetti(18);
+  } catch (e) {
+    renderStickerButtons(myReply(current.id));
+    st.classList.add('is-error');
+    st.textContent = `답장을 남기지 못했어요. ${whyReply(e)} 잠시 뒤 다시 눌러 주세요.`;
+  } finally {
+    sending = false;
+  }
+}
 
 function setKeepButton(entry) {
   const b = $('keep-btn');
@@ -50,7 +121,7 @@ export async function showReceived(code) {
     return;
   }
 
-  current = { code, data: res.data };
+  current = { code, data: res.data, id: null };
   const entry = findInBox(code);
   const who = (entry && entry.from) || res.data.n;
   $('read-title').textContent = entry && entry.kind === 'mine' ? '내 영수증' : who ? `${who}님이 보낸 영수증` : '친구 영수증';
@@ -64,6 +135,7 @@ export async function showReceived(code) {
   clearState(state, '친구 영수증');
   body.hidden = false;
   if (res.data.s) fillReceiptSong(r.querySelector('.receipt__song-slot'), res.data.s);
+  setupReplies(!!(entry && entry.kind === 'mine'));
 }
 
 export function setupViewer() {

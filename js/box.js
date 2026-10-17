@@ -1,4 +1,5 @@
-// 보관함 화면: 달력(영수증 있는 날 표시) + 그날의 영수증 목록, 내 영수증 / 친구 영수증 탭,
+// 보관함 화면: 달력(영수증 있는 날 표시) + 그날의 영수증 목록, 내 영수증 / 친구 영수증 탭, 친구별로 보기,
+// 내 영수증에 달린 답장 스티커 요약,
 // 삭제, 파일로 내보내기·가져오기.
 
 import { showEmpty, showError, clearState } from './states.js';
@@ -6,11 +7,14 @@ import { loadBox, removeFromBox, exportBox, importBox } from './storage.js';
 import { setFieldError, clearFieldError } from './validate.js';
 import { formatDayKo, formatWon, totalOf } from './receipt.js';
 import { startSample, todayStr } from './maker.js';
+import { receiptId, getReplies, stickerOf } from './reactions.js';
 
 const $ = (id) => document.getElementById(id);
 let filter = 'all';          // 'all' | 'mine' | 'received'
 let selected = null;         // 고른 날짜 'YYYY-MM-DD' (없으면 모든 날짜)
 let month = null;            // 달력에 보이는 달 'YYYY-MM'
+let friend = null;           // 친구별로 보기에서 고른 친구 이름 (없으면 모든 친구)
+const NO_NAME = '이름 없는 친구';
 const FILTER_KO = { all: '전체', mine: '내 영수증', received: '친구 영수증' };
 const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -18,6 +22,7 @@ const pad = (n) => String(n).padStart(2, '0');
 const kindLabel = (e) => (e.kind === 'mine' ? '내 영수증' : '친구 영수증');
 // 친구 이름: 보관할 때 적은 이름 → 링크 안의 보낸 사람 이름
 const friendName = (e) => (e.kind === 'mine' ? '' : e.from || e.data.n || '');
+const friendKey = (e) => friendName(e) || NO_NAME;
 
 // ───────── 목록 한 장 ─────────
 function itemEl(e, k) {
@@ -65,7 +70,14 @@ function itemEl(e, k) {
     $('box-list-title').focus();
   });
   btns.append(open, del);
-  li.append(head, sum, btns);
+  if (e.kind === 'mine') {
+    const rp = document.createElement('p');
+    rp.className = 'box-item__replies';
+    rp.dataset.key = e.key;
+    li.append(head, sum, rp, btns);
+  } else {
+    li.append(head, sum, btns);
+  }
   return li;
 }
 
@@ -170,10 +182,61 @@ function renderCalendar(entries) {
   cal.replaceChildren(head, table, note);
 }
 
+// ───────── 친구별로 보기 (받을 때 적은 이름으로 묶음) ─────────
+function renderFriendChips(all) {
+  const box = $('friend-chips');
+  const counts = new Map();
+  all.filter((e) => e.kind === 'received').forEach((e) => counts.set(friendKey(e), (counts.get(friendKey(e)) || 0) + 1));
+  if (friend && !counts.has(friend)) friend = null;
+  box.hidden = !counts.size || filter === 'mine';
+  if (box.hidden) { box.replaceChildren(); return; }
+  const chip = (label, value, n) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'friend-chip';
+    b.setAttribute('aria-pressed', String(friend === value));
+    b.textContent = label;
+    if (n) {
+      const c = document.createElement('span');
+      c.className = 'friend-chip__n';
+      c.textContent = n;
+      c.setAttribute('aria-label', `${n}장`);
+      b.append(c);
+    }
+    b.addEventListener('click', () => {
+      friend = friend === value ? null : value;
+      if (friend) filter = 'received'; // 친구를 고르면 친구 영수증 탭으로
+      selected = null;
+      renderBox({ keepFocus: null });
+      ($('friend-chips').querySelector('[aria-pressed="true"]') || $('friend-chips').firstChild)?.focus();
+    });
+    return b;
+  };
+  const names = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko'));
+  box.replaceChildren(chip('모든 친구', null, 0), ...names.map(([name, n]) => chip(name, name, n)));
+}
+
+// 내 영수증 카드에 답장 요약 (😂🥹 2) — 화면에 보이는 것만, 실패하면 조용히 비워 둔다
+async function fillReplySummaries() {
+  const slots = [...document.querySelectorAll('#box-list .box-item__replies')].slice(0, 20);
+  await Promise.all(slots.map(async (slot) => {
+    try {
+      const list = await getReplies(await receiptId(slot.dataset.key));
+      if (!slot.isConnected) return;
+      if (!list.length) { slot.textContent = '아직 받은 답장이 없어요'; slot.classList.add('is-empty'); return; }
+      const emojis = [...new Set(list.map((r) => (stickerOf(r.s) || [, '💬'])[1]))].join('');
+      slot.textContent = `💬 받은 답장 ${emojis} ${list.length}`;
+      slot.setAttribute('aria-label', `받은 답장 ${list.length}개`);
+    } catch (e) {
+      slot.textContent = '';
+    }
+  }));
+}
+
 // ───────── 화면 그리기 ─────────
 // reset: 보관함 화면에 새로 들어올 때 → 가장 최근 달, 날짜 선택 없음
 export function renderBox({ keepFocus, reset } = {}) {
-  if (reset) { month = null; selected = null; }
+  if (reset) { month = null; selected = null; friend = null; }
   const state = $('box-state');
   const list = $('box-list');
   document.querySelectorAll('#view-box .tab').forEach((t) => t.setAttribute('aria-pressed', String(t.dataset.filter === filter)));
@@ -194,7 +257,8 @@ export function renderBox({ keepFocus, reset } = {}) {
     return;
   }
 
-  const byTab = all.filter((e) => filter === 'all' || e.kind === filter);
+  renderFriendChips(all);
+  const byTab = all.filter((e) => (filter === 'all' || e.kind === filter) && (!friend || (e.kind === 'received' && friendKey(e) === friend)));
   // 처음 열 때는 가장 최근 영수증이 있는 달 (없으면 이번 달)
   if (!month) {
     const latest = all.map((e) => e.data.d).sort().pop();
@@ -207,11 +271,12 @@ export function renderBox({ keepFocus, reset } = {}) {
     // 날짜 최근순 → 같은 날은 내 영수증 먼저 → 저장 최근순
     .sort((a, b) => (a.data.d !== b.data.d ? (a.data.d < b.data.d ? 1 : -1) : a.kind !== b.kind ? (a.kind === 'mine' ? -1 : 1) : b.savedAt - a.savedAt));
   list.replaceChildren(...shown.map(itemEl));
+  fillReplySummaries();
 
   $('box-list-title').textContent = selected ? `${formatDayKo(selected)}의 영수증` : '모든 날짜';
   $('box-list-title').tabIndex = -1;
   $('cal-clear').hidden = !selected;
-  $('box-count').textContent = shown.length ? `${FILTER_KO[filter]} ${shown.length}장${selected ? '' : ' · 최근 날짜순'}` : '';
+  $('box-count').textContent = shown.length ? `${friend ? `${friend}님 영수증` : FILTER_KO[filter]} ${shown.length}장${selected ? '' : ' · 최근 날짜순'}` : '';
 
   if (keepFocus) document.querySelector(`#cal ${keepFocus}`)?.focus();
 
@@ -228,10 +293,11 @@ export function renderBox({ keepFocus, reset } = {}) {
     });
     return;
   }
-  const what = filter === 'mine' ? '내 영수증이' : filter === 'received' ? '친구 영수증이' : '영수증이';
+  const what = friend ? `${friend}님 영수증이` : filter === 'mine' ? '내 영수증이' : filter === 'received' ? '친구 영수증이' : '영수증이';
   const actions = [];
   if (selected) actions.push({ label: '모든 날짜 보기', onClick: () => { selected = null; renderBox(); } });
-  if (filter !== 'all') actions.push({ label: '전체 보기', onClick: () => { filter = 'all'; renderBox(); } });
+  if (friend) actions.push({ label: '모든 친구 보기', onClick: () => { friend = null; renderBox(); } });
+  if (filter !== 'all') actions.push({ label: '전체 보기', onClick: () => { filter = 'all'; friend = null; renderBox(); } });
   if (filter === 'mine') actions.push({ label: '영수증 만들기', onClick: () => { location.hash = '#make-1'; } });
   showEmpty(state, {
     where: '보관함',
@@ -243,7 +309,7 @@ export function renderBox({ keepFocus, reset } = {}) {
 
 export function setupBox() {
   document.querySelectorAll('#view-box .tab').forEach((t) => {
-    t.addEventListener('click', () => { filter = t.dataset.filter; renderBox(); });
+    t.addEventListener('click', () => { filter = t.dataset.filter; friend = null; renderBox(); });
   });
   $('cal-clear').addEventListener('click', () => { selected = null; renderBox(); $('box-list-title').focus(); });
 

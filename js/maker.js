@@ -13,6 +13,7 @@ import { renderReceipt, formatDayKo } from './receipt.js';
 import { makeReceiptImage, downloadImage } from './image.js';
 import { getPosition, placeFromCoords, placeFromStation, fetchWeather } from './weather.js';
 import { REGIONS } from './places.js';
+import { loadRepliesInto } from './reactions.js';
 
 const $ = (id) => document.getElementById(id);
 const pad = (n) => String(n).padStart(2, '0');
@@ -515,9 +516,21 @@ function renderStep4() {
   $('manual-copy').hidden = true;
   reportState('완성된 영수증', 'ok');
   if (draft.celebrate) { draft.celebrate = false; setTimeout(() => confetti(), 900); }
+  loadMyReplies();
+}
+
+// 받은 답장 (친구가 링크를 열고 남긴 스티커)
+function loadMyReplies() {
+  loadRepliesInto({
+    code: draft.code,
+    state: $('my-replies-state'),
+    list: $('my-replies-list'),
+    emptyText: '링크를 보내면 친구가 남긴 스티커가 여기와 보관함에 보여요.',
+  });
 }
 
 function setupStep4() {
+  $('my-replies-refresh').addEventListener('click', loadMyReplies);
   $('share-link').addEventListener('click', async () => {
     const url = linkFor(draft.code);
     const st = $('share-status');

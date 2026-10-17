@@ -56,6 +56,12 @@ export const MOODS = [
   ['tired', '😴', '피곤'], ['sad', '🥲', '아쉬움'], ['mad', '😤', '짜증'], ['busy', '🤯', '정신없음'],
 ];
 
+// 답장 스티커 (worker/src/index.js 의 STICKERS 와 같은 목록)
+export const REPLY_STICKERS = [
+  ['lol', '😂', 'ㅋㅋㅋ'], ['touched', '🥹', '찡해'], ['nice', '👍', '좋다'],
+  ['yum', '😋', '맛있겠다'], ['thanks', '🫶', '고마워'], ['cheer', '💪', '힘내'],
+];
+
 // 날씨 종류 → 그림·이름
 export const WEATHER = {
   sun: ['☀️', '맑음'], cloud: ['⛅', '구름 많음'], overcast: ['☁️', '흐림'],

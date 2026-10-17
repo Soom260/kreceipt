@@ -405,6 +405,84 @@ const shot = (page, name) => page.screenshot({ path: `out/${name}.png`, fullPage
   await ctx4.close();
 }
 
+// 16) 답장 스티커(B) + 친구별로 보기(A)
+{
+  const run = Date.now().toString(36);
+  const A = await browser.newContext({ viewport: { width: 360, height: 780 }, permissions: ['clipboard-read', 'clipboard-write'] });
+  const pa = await A.newPage();
+  pa.on('pageerror', (e) => record('페이지 오류 없음(답장)', false, e.message));
+  await pa.goto(BASE + '#home');
+  await pa.click('#view-home [data-manual]');
+  await pa.fill('#rows .tx__cell--name input', '붕어빵');
+  await pa.fill('#rows .tx__cell--amount input', '2000');
+  await pa.click('#to-step3');
+  await pa.fill('#nick', '숨');
+  await pa.fill('#message', '점검 ' + run);
+  await pa.click('#to-step4');
+  await pa.waitForURL(/#make-4/);
+  await pa.waitForSelector('#my-replies-state .state--empty, #my-replies-state .state--error', { timeout: 15000 });
+  record('4단계 받은 답장: 처음엔 빈 결과 안내', /아직 답장이 없어요/.test(await pa.textContent('#my-replies-state')));
+  await pa.click('#share-link');
+  await pa.waitForTimeout(400);
+  const link = await pa.evaluate(() => navigator.clipboard.readText());
+
+  const B = await browser.newContext({ viewport: { width: 360, height: 780 } });
+  const pb = await B.newPage();
+  pb.on('pageerror', (e) => record('페이지 오류 없음(답장 받는 쪽)', false, e.message));
+  await pb.goto(link);
+  await pb.waitForSelector('#reply-stickers .sticker');
+  record('친구 영수증: 답장 스티커 6개', (await pb.$$('#reply-stickers .sticker')).length === 6);
+  await pb.fill('#reply-name', '가나다라마바사아자차카');
+  await pb.click('#reply-stickers .sticker[data-sticker="lol"]');
+  record('답장 이름 11자: 칸 아래 안내·초점', await pb.evaluate(() => document.activeElement.id === 'reply-name' && document.getElementById('reply-name').getAttribute('aria-invalid') === 'true'));
+  await pb.fill('#reply-name', '민지');
+  await pb.click('#reply-stickers .sticker[data-sticker="lol"]');
+  await pb.waitForSelector('#reply-list .reply', { timeout: 15000 });
+  record('스티커 보내면 목록에 내 답장', /민지 · ㅋㅋㅋ/.test(await pb.textContent('#reply-list')));
+  await pb.click('#reply-stickers .sticker[data-sticker="yum"]');
+  await pb.waitForFunction(() => /맛있겠다/.test(document.getElementById('reply-list').textContent), null, { timeout: 15000 });
+  record('다른 스티커를 누르면 바뀜(하나만)', (await pb.$$('#reply-list .reply')).length === 1 && (await pb.getAttribute('#reply-stickers .sticker[data-sticker="yum"]', 'aria-pressed')) === 'true');
+  await shot(pb, 'reply-sent');
+  await pb.fill('#from-name', '민지');
+  await pb.click('#keep-btn');
+  // 두 번째 친구 영수증
+  const other = await pb.evaluate((r) => window.LZString.compressToEncodedURIComponent(JSON.stringify({ v: 1, d: '2026-10-11', n: '하늘', i: [['꽃', 12000]], m: '점검2 ' + r })), run);
+  await pb.goto(link.split('#')[0] + '#r=' + other);
+  await pb.waitForSelector('#read-body:not([hidden])');
+  await pb.click('#keep-btn');
+  await pb.goto(link.split('#')[0] + '#box');
+  await pb.waitForSelector('#friend-chips:not([hidden]) .friend-chip');
+  const chips = await pb.$$eval('#friend-chips .friend-chip', (e) => e.map((x) => x.textContent));
+  record('친구별 칩: 모든 친구·민지·하늘', chips.length === 3 && chips.some((c) => /민지/.test(c)) && chips.some((c) => /하늘/.test(c)), chips.join(' / '));
+  await pb.click('#friend-chips .friend-chip:has-text("하늘")');
+  record('친구 칩 누르면 그 친구 영수증만 + 친구 탭', (await pb.$$('#box-list .box-item')).length === 1 && (await pb.getAttribute('#view-box .tab[data-filter="received"]', 'aria-pressed')) === 'true' && /하늘님 영수증/.test(await pb.textContent('#box-count')));
+  record('360px 보관함(친구 칩) 가로 넘침 없음', (await overflow(pb)) <= 0);
+  await shot(pb, 'box-friends');
+
+  // 보낸 사람: 새로고침하면 답장이 보이고, 보관함 카드에 요약
+  await pa.click('#my-replies-refresh');
+  await pa.waitForSelector('#my-replies-list .reply', { timeout: 15000 });
+  record('보낸 사람 4단계: 받은 답장 보임', /민지 · 맛있겠다/.test(await pa.textContent('#my-replies-list')));
+  await pa.click('.top nav a[href="#box"]');
+  await pa.waitForFunction(() => /받은 답장/.test(document.querySelector('#box-list .box-item__replies')?.textContent || ''), null, { timeout: 15000 });
+  record('보관함 내 영수증 카드: 답장 요약', /😋 1/.test(await pa.textContent('#box-list .box-item__replies')), await pa.textContent('#box-list .box-item__replies'));
+  await shot(pa, 'box-reply-summary');
+  // 내 영수증을 링크로 열면 스티커 대신 받은 답장만
+  await pa.goto(link);
+  await pa.waitForSelector('#reply-list .reply', { timeout: 15000 });
+  record('내 영수증 화면: 스티커 칸 숨김, 받은 답장 보임', (await pa.isHidden('#reply-send')) && /받은 답장/.test(await pa.textContent('#reply-title')));
+  await A.close();
+  await B.close();
+
+  // ?sim=error: 답장 실패 안내
+  const C = await browser.newContext({ viewport: { width: 360, height: 780 } });
+  const pc = await C.newPage();
+  await pc.goto(BASE.replace(/\/?$/, '/') + '?sim=error#r=' + other);
+  await pc.waitForSelector('#reply-state .state--error', { timeout: 15000 });
+  record('sim=error: 답장 불러오기 오류 + 다시 시도', /다시 시도/.test(await pc.textContent('#reply-state')));
+  await C.close();
+}
+
 await browser.close();
 const fail = results.filter((r) => !r.ok).length;
 console.log(`\n${results.length - fail}/${results.length} 통과`);

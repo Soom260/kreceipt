@@ -22,31 +22,32 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <!-- 본문 글꼴 Pretendard 1.3.9 (SIL OFL) -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="css/style.css?v=202610162037">
+<link rel="stylesheet" href="css/style.css?v=202610171814">
 <!-- 링크 압축 라이브러리 (버전 고정 + 무결성 확인) -->
 <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js" integrity="sha384-0d+Gr7vM4Drod8E3hXKgciWJSWbjD/opKLLygI9ktiWbuvlDwQLzU46wJ9s5gsp7" crossorigin="anonymous"></script>
 <!-- 새로 올릴 때마다 v= 값을 바꾸면 휴대전화가 옛 파일 대신 새 파일을 받는다 (tools/bump-version.mjs) -->
 <script type="importmap">
 { "imports": {
-  "./js/app.js": "./js/app.js?v=202610162037",
-  "./js/box.js": "./js/box.js?v=202610162037",
-  "./js/config.js": "./js/config.js?v=202610162037",
-  "./js/image.js": "./js/image.js?v=202610162037",
-  "./js/maker.js": "./js/maker.js?v=202610162037",
-  "./js/music.js": "./js/music.js?v=202610162037",
-  "./js/ocr.js": "./js/ocr.js?v=202610162037",
-  "./js/parse.js": "./js/parse.js?v=202610162037",
-  "./js/receipt.js": "./js/receipt.js?v=202610162037",
-  "./js/share.js": "./js/share.js?v=202610162037",
-  "./js/states.js": "./js/states.js?v=202610162037",
-  "./js/storage.js": "./js/storage.js?v=202610162037",
-  "./js/validate.js": "./js/validate.js?v=202610162037",
-  "./js/viewer.js": "./js/viewer.js?v=202610162037",
-  "./js/weather.js": "./js/weather.js?v=202610162037",
-  "./js/places.js": "./js/places.js?v=202610162037"
+  "./js/app.js": "./js/app.js?v=202610171814",
+  "./js/box.js": "./js/box.js?v=202610171814",
+  "./js/config.js": "./js/config.js?v=202610171814",
+  "./js/image.js": "./js/image.js?v=202610171814",
+  "./js/maker.js": "./js/maker.js?v=202610171814",
+  "./js/music.js": "./js/music.js?v=202610171814",
+  "./js/ocr.js": "./js/ocr.js?v=202610171814",
+  "./js/parse.js": "./js/parse.js?v=202610171814",
+  "./js/receipt.js": "./js/receipt.js?v=202610171814",
+  "./js/share.js": "./js/share.js?v=202610171814",
+  "./js/states.js": "./js/states.js?v=202610171814",
+  "./js/storage.js": "./js/storage.js?v=202610171814",
+  "./js/validate.js": "./js/validate.js?v=202610171814",
+  "./js/viewer.js": "./js/viewer.js?v=202610171814",
+  "./js/weather.js": "./js/weather.js?v=202610171814",
+  "./js/places.js": "./js/places.js?v=202610171814",
+  "./js/reactions.js": "./js/reactions.js?v=202610171814"
 } }
 </script>
-<script type="module" src="./js/app.js?v=202610162037"></script>
+<script type="module" src="./js/app.js?v=202610171814"></script>
 </head>
 <body>
 
@@ -242,6 +243,16 @@
     <div class="receipt-stage" id="my-receipt"></div>
     <p class="status-line" id="my-save-status" role="status" aria-live="polite"></p>
 
+    <!-- 친구가 남긴 답장 스티커 -->
+    <section class="card replies" id="my-replies" aria-labelledby="my-replies-title">
+      <div class="replies__head">
+        <h2 class="replies__title" id="my-replies-title">받은 답장</h2>
+        <button type="button" class="btn btn--soft btn--small" id="my-replies-refresh">새로고침</button>
+      </div>
+      <div class="state-box" id="my-replies-state" aria-live="polite"></div>
+      <ul class="reply-list" id="my-replies-list" aria-label="받은 답장"></ul>
+    </section>
+
     <div class="share">
       <div class="stack-btns">
         <button type="button" class="btn btn--primary btn--block" id="share-link"><span aria-hidden="true">💌</span> 링크 보내기</button>
@@ -268,6 +279,21 @@
     <div class="state-box" id="read-state" aria-live="polite"></div>
     <div id="read-body" hidden>
       <div class="receipt-stage" id="read-receipt"></div>
+
+      <!-- 답장 스티커: 친구 영수증이면 남기기, 내 영수증이면 받은 답장 보기 -->
+      <section class="card replies" id="reply-card" aria-labelledby="reply-title">
+        <h2 class="replies__title" id="reply-title">답장 스티커</h2>
+        <p class="hint" id="reply-hint">스티커로 보낸 사람에게 마음을 전해요. 링크를 가진 사람은 누구나 답장을 볼 수 있어요.</p>
+        <div id="reply-send">
+          <div class="sticker-grid" id="reply-stickers" role="group" aria-labelledby="reply-title"></div>
+          <label for="reply-name" class="label label--sub">답장에 붙일 내 이름 <span class="opt">(선택, 10자)</span></label>
+          <input type="text" id="reply-name" class="input" autocomplete="nickname">
+        </div>
+        <p class="status-line" id="reply-status" role="status" aria-live="polite"></p>
+        <div class="state-box" id="reply-state" aria-live="polite"></div>
+        <ul class="reply-list" id="reply-list" aria-label="이 영수증에 달린 답장"></ul>
+      </section>
+
       <div class="field card" id="from-field">
         <label for="from-name" class="label">누구의 영수증인가요? <span class="opt">(선택)</span></label>
         <p class="hint" id="from-hint">보관함에서 이 이름으로 보여요. 내 보관함에만 저장돼요. 10자까지.</p>
@@ -293,6 +319,9 @@
       <button type="button" class="tab" data-filter="mine" aria-pressed="false">내 영수증</button>
       <button type="button" class="tab" data-filter="received" aria-pressed="false">친구 영수증</button>
     </div>
+
+    <!-- 친구별로 보기: 받을 때 적은 이름으로 묶는다 -->
+    <div class="friend-chips" id="friend-chips" role="group" aria-label="친구별로 보기" hidden></div>
 
     <!-- 달력: 영수증이 있는 날에 표시. 날짜를 누르면 그날 영수증만 보인다 -->
     <div class="cal" id="cal"></div>
