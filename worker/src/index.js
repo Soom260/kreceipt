@@ -2,6 +2,10 @@
 // 하는 일은 두 가지뿐이고, 정해진 값만 받는다 (아무 주소나 대신 불러 주는 서버가 아님).
 //   GET /songs?term=검색어      → iTunes 노래 검색 (아이폰 브라우저에서 Apple 이 음악 앱으로 돌려보내는 문제를 피함)
 //   GET /song?id=곡ID           → iTunes 곡 다시 불러오기
+//   GET  /reactions?id=영수증번호         → 그 영수증에 달린 답장 스티커 목록
+//   POST /reactions {id, s, n, dev}       → 답장 스티커 남기기 (같은 기기는 하나만, 다시 보내면 바뀜)
+//        영수증번호는 브라우저가 링크로 만든 SHA-256 해시 앞 32자. 서버는 영수증 내용을 모른다.
+//        저장소: Cloudflare KV (REACTIONS), 90일 뒤 저절로 지워짐
 //   GET /weather?date=YYYY-MM-DD&nx=60&ny=127&stn=108
 //                                → 기상청 날씨. 오늘은 초단기실황·초단기예보(격자 nx,ny), 지난 날짜는 ASOS 일자료(관측소 stn)
 // 인증키(KMA_API_KEY)는 코드에 없다. GitHub Secrets → GitHub Actions 배포 때 Worker 비밀 값으로 들어온다.
@@ -41,7 +45,9 @@ function corsHeaders(req) {
   const h = { 'Vary': 'Origin' };
   if (origin && ALLOWED_ORIGINS.includes(origin)) {
     h['Access-Control-Allow-Origin'] = origin;
-    h['Access-Control-Allow-Methods'] = 'GET, OPTIONS';
+    h['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS';
+    h['Access-Control-Allow-Headers'] = 'Content-Type';
+    h['Access-Control-Max-Age'] = '86400';
   }
   return h;
 }
@@ -219,16 +225,69 @@ async function handleWeather(req, url, env) {
   return json(req, 200, { ok: true, weather: w }, today ? 600 : 86400);
 }
 
+// ───────── 답장 스티커 ─────────
+// 스티커 종류 (js/config.js 의 REPLY_STICKERS 와 같은 목록)
+const STICKERS = new Set(['lol', 'touched', 'nice', 'yum', 'thanks', 'cheer']);
+const MAX_REACTIONS = 30;
+const KEEP_SEC = 90 * 24 * 3600;
+const ID_RE = /^[0-9a-f]{32}$/;
+const DEV_RE = /^[0-9a-f]{16,32}$/;
+
+// 바깥에 내보내는 모양: 기기 번호(dev)는 빼고 스티커·이름·시각만
+const publicList = (list) => list.map((r) => ({ s: r.s, n: r.n || '', t: r.t }));
+
+async function readReactions(env, id) {
+  const raw = await env.REACTIONS.get('r:' + id);
+  try { return raw ? JSON.parse(raw) : []; } catch (e) { return []; }
+}
+
+async function handleReactionsGet(req, url, env) {
+  const id = url.searchParams.get('id') || '';
+  if (!ID_RE.test(id)) return fail(req, 400, 'bad_id', '영수증 번호가 올바르지 않아요.');
+  return json(req, 200, { ok: true, reactions: publicList(await readReactions(env, id)) });
+}
+
+async function handleReactionsPost(req, env) {
+  if (!(req.headers.get('Content-Type') || '').includes('application/json')) return fail(req, 415, 'type', 'JSON 으로 보내 주세요.');
+  const text = await req.text();
+  if (text.length > 600) return fail(req, 413, 'too_big', '보낸 내용이 너무 커요.');
+  let body;
+  try { body = JSON.parse(text); } catch (e) { return fail(req, 400, 'bad_json', '내용을 읽을 수 없어요.'); }
+  const id = String(body.id || '');
+  const sticker = String(body.s || '');
+  const dev = String(body.dev || '');
+  const name = typeof body.n === 'string' ? Array.from(body.n.trim()).slice(0, 10).join('') : '';
+  if (!ID_RE.test(id)) return fail(req, 400, 'bad_id', '영수증 번호가 올바르지 않아요.');
+  if (!STICKERS.has(sticker)) return fail(req, 400, 'bad_sticker', '없는 스티커예요.');
+  if (!DEV_RE.test(dev)) return fail(req, 400, 'bad_dev', '기기 번호가 올바르지 않아요.');
+
+  const list = (await readReactions(env, id)).filter((r) => r.d !== dev);
+  if (list.length >= MAX_REACTIONS) return fail(req, 429, 'full', `한 영수증에는 답장을 ${MAX_REACTIONS}개까지 남길 수 있어요.`);
+  list.push({ s: sticker, n: name, t: Date.now(), d: dev });
+  await env.REACTIONS.put('r:' + id, JSON.stringify(list), { expirationTtl: KEEP_SEC });
+  return json(req, 200, { ok: true, reactions: publicList(list) });
+}
+
 export default {
   async fetch(req, env) {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(req) });
-    if (req.method !== 'GET') return fail(req, 405, 'method', 'GET 만 받아요.');
     const url = new URL(req.url);
+    if (req.method === 'POST' && url.pathname === '/reactions') {
+      // 허용한 화면 주소에서 온 요청만 받는다
+      if (!ALLOWED_ORIGINS.includes(req.headers.get('Origin') || '')) return fail(req, 403, 'origin', '허용되지 않은 주소예요.');
+      if (!env.REACTIONS) return fail(req, 503, 'no_store', '답장 저장소가 준비되지 않았어요.');
+      try { return await handleReactionsPost(req, env); } catch (e) { return fail(req, 502, 'store', '답장을 저장하지 못했어요.'); }
+    }
+    if (req.method !== 'GET') return fail(req, 405, 'method', 'GET·POST 만 받아요.');
     try {
+      if (url.pathname === '/reactions') {
+        if (!env.REACTIONS) return fail(req, 503, 'no_store', '답장 저장소가 준비되지 않았어요.');
+        return await handleReactionsGet(req, url, env);
+      }
       if (url.pathname === '/songs') return await handleSongs(req, url);
       if (url.pathname === '/song') return await handleSong(req, url);
       if (url.pathname === '/weather') return await handleWeather(req, url, env);
-      if (url.pathname === '/') return json(req, 200, { ok: true, service: 'kreceipt-api', paths: ['/songs', '/song', '/weather'] });
+      if (url.pathname === '/') return json(req, 200, { ok: true, service: 'kreceipt-api', paths: ['/songs', '/song', '/weather', '/reactions'] });
       return fail(req, 404, 'not_found', '없는 주소예요.');
     } catch (e) {
       // 바깥 API 실패. 인증키나 원본 응답은 돌려주지 않는다

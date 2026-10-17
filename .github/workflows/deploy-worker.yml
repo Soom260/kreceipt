@@ -19,6 +19,22 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
+      # 답장 스티커 저장소(KV). 이름으로 찾아 없으면 만들고, 번호를 설정 파일에 붙인다 (번호는 비밀이 아님)
+      - name: 답장 저장소(KV) 준비
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          API="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/storage/kv/namespaces"
+          ID=$(curl -fsS -H "Authorization: Bearer $CF_TOKEN" "$API?per_page=100" | jq -r '.result[] | select(.title=="kreceipt-reactions") | .id')
+          if [ -z "$ID" ]; then
+            ID=$(curl -fsS -X POST -H "Authorization: Bearer $CF_TOKEN" -H "Content-Type: application/json" \
+              -d '{"title":"kreceipt-reactions"}' "$API" | jq -r '.result.id')
+          fi
+          if [ -z "$ID" ] || [ "$ID" = "null" ]; then echo "::error::KV 저장소를 만들지 못했어요 (토큰 권한 확인)"; exit 1; fi
+          printf '\n[[kv_namespaces]]\nbinding = "REACTIONS"\nid = "%s"\n' "$ID" >> worker/wrangler.toml
+          echo "::notice title=KV::kreceipt-reactions 연결됨"
+
       - name: Worker 배포 (wrangler)
         id: deploy
         uses: cloudflare/wrangler-action@v4.1.3
