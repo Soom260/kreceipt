@@ -1,0 +1,15 @@
+# 임시 점검: GitHub 서버(마이크로소프트 클라우드)에서 iTunes 검색이 되는지 확인 (확인 후 지움)
+name: iTunes 접속 점검
+on:
+  push:
+    paths: ['.github/workflows/probe-itunes.yml']
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for i in 1 2 3; do
+            c=$(curl -s -o /tmp/r -w '%{http_code}' 'https://itunes.apple.com/search?term=IU&country=US&media=music&entity=song&limit=1')
+            echo "::notice title=itunes search $i::$c $(head -c 40 /tmp/r | tr -d '\n')"
+            sleep 3
+          done
