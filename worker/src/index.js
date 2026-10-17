@@ -268,6 +268,26 @@ async function handleReactionsPost(req, env) {
   return json(req, 200, { ok: true, reactions: publicList(list) });
 }
 
+// 임시: iTunes 가 어떤 요청에 429 를 주는지 확인
+async function probe(req) {
+  const q = 'term=IU&country=US&media=music&entity=song&limit=1';
+  const browser = { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15', 'Accept': 'application/json,text/javascript,*/*;q=0.1', 'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8' };
+  const tries = [
+    ['plain', `https://itunes.apple.com/search?${q}`, {}],
+    ['ua', `https://itunes.apple.com/search?${q}`, { 'User-Agent': UA }],
+    ['browser', `https://itunes.apple.com/search?${q}`, browser],
+    ['kr-path', `https://itunes.apple.com/kr/search?${q}`, browser],
+    ['lookup', 'https://itunes.apple.com/lookup?id=1560113134&country=US', browser],
+    ['wsSearch', `https://itunes.apple.com/WebObjects/MZStoreServices.woa/ws/wsSearch?${q}`, browser],
+  ];
+  const out = [];
+  for (const [name, u, h] of tries) {
+    try { const r = await fetch(u, { headers: h, redirect: 'manual' }); out.push([name, r.status, r.headers.get('retry-after') || '']); }
+    catch (e) { out.push([name, 'ERR', String(e.message).slice(0, 60)]); }
+  }
+  return json(req, 200, { colo: (req.cf && req.cf.colo) || '', out });
+}
+
 export default {
   async fetch(req, env) {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(req) });
@@ -287,6 +307,7 @@ export default {
       if (url.pathname === '/songs') return await handleSongs(req, url);
       if (url.pathname === '/song') return await handleSong(req, url);
       if (url.pathname === '/weather') return await handleWeather(req, url, env);
+      if (url.pathname === '/__probe') return await probe(req); // 임시 점검용 (곧 지움)
       if (url.pathname === '/') return json(req, 200, { ok: true, service: 'kreceipt-api', paths: ['/songs', '/song', '/weather', '/reactions'] });
       return fail(req, 404, 'not_found', '없는 주소예요.');
     } catch (e) {
