@@ -10,7 +10,8 @@ import { setupSongPicker, fillReceiptSong, stopPreview } from './music.js';
 import { buildReceipt, encodeReceipt, linkFor, shareLink } from './share.js';
 import { addToBox, getNick, setNick } from './storage.js';
 import { renderReceipt, formatDayKo } from './receipt.js';
-import { makeReceiptImage, downloadImage } from './image.js';
+import { makeReceiptImage, downloadImage, warmInstaImages } from './image.js';
+import { openImageDialog, setupImageDialog, setupInstaButtons } from './insta.js';
 import { getPosition, placeFromCoords, placeFromStation, fetchWeather } from './weather.js';
 import { REGIONS } from './places.js';
 import { loadRepliesInto } from './reactions.js';
@@ -516,6 +517,7 @@ function renderStep4() {
   $('manual-copy').hidden = true;
   reportState('완성된 영수증', 'ok');
   if (draft.celebrate) { draft.celebrate = false; setTimeout(() => confetti(), 900); }
+  warmInstaImages(r); // 인스타 버튼을 누르면 바로 열리도록 미리 만들어 둠
   loadMyReplies();
 }
 
@@ -531,6 +533,13 @@ function loadMyReplies() {
 
 function setupStep4() {
   $('my-replies-refresh').addEventListener('click', loadMyReplies);
+  setupInstaButtons({
+    copyBtn: $('copy-sticker'),
+    shareBtn: $('share-story'),
+    statusEl: $('share-status'),
+    getReceipt: () => $('my-receipt').querySelector('.receipt'),
+    getDate: () => draft.data.d,
+  });
   $('share-link').addEventListener('click', async () => {
     const url = linkFor(draft.code);
     const st = $('share-status');
@@ -588,25 +597,6 @@ export async function saveImage(receiptEl, date, statusEl, trigger) {
     downloadImage(img.url, filename);
     statusEl.textContent = `이미지를 저장했어요. 다운로드 폴더를 확인해 주세요.${cover}`;
   }
-}
-
-function openImageDialog(url, filename, trigger) {
-  const dlg = $('img-dialog');
-  $('img-dialog-img').src = url;
-  $('img-dialog-download').href = url;
-  $('img-dialog-download').setAttribute('download', filename);
-  if (typeof dlg.showModal === 'function') dlg.showModal();
-  else dlg.setAttribute('open', '');
-  $('img-dialog-close').focus();
-  dlg.onclose = () => { $('img-dialog-img').removeAttribute('src'); trigger?.focus(); };
-}
-
-function setupImageDialog() {
-  const dlg = $('img-dialog');
-  const close = () => { if (dlg.close) dlg.close(); else { dlg.removeAttribute('open'); dlg.onclose?.(); } };
-  $('img-dialog-close').addEventListener('click', close);
-  // 이미지 바깥(어두운 배경)을 누르면 닫기
-  dlg.addEventListener('click', (e) => { if (e.target === dlg) close(); });
 }
 
 // ───────── 단계 들어가기 (주소가 바뀔 때 app.js 가 부른다) ─────────

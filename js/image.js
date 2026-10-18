@@ -62,3 +62,75 @@ export function downloadImage(url, filename) {
   a.click();
   a.remove();
 }
+
+// ───────── 인스타 스토리용 이미지 ─────────
+// sticker: 배경이 투명한 영수증 (스토리 사진 위에 스티커로 붙이기용)
+// story:   스토리 크기(1080×1920) 연분홍 바탕 가운데 영수증
+// 화면의 영수증을 복제해 화면 밖에 잠깐 놓고 그린다. 결과는 영수증 요소에 기억해 두어,
+// 버튼을 누르는 순간 바로 공유 창을 열 수 있게 한다 (휴대전화는 누른 직후에만 공유 창을 허락함).
+function buildStage(receiptEl, kind) {
+  const stage = document.createElement('div');
+  stage.className = `export-stage export-stage--${kind}`;
+  stage.setAttribute('aria-hidden', 'true');
+  const clone = receiptEl.cloneNode(true);
+  clone.classList.remove('is-printing');
+  clone.classList.add('receipt--export');
+  clone.removeAttribute('aria-label');
+  // 합계가 올라가는 중에 복제해도 마지막 숫자로
+  const tot = clone.querySelector('.receipt__total span:last-child');
+  if (tot && tot.dataset.final) tot.textContent = tot.dataset.final;
+  stage.append(clone);
+  if (kind === 'story') {
+    const tag = document.createElement('p');
+    tag.className = 'export-stage__tag';
+    tag.textContent = 'KRECEIPT';
+    stage.append(tag);
+  }
+  document.body.append(stage);
+  return stage;
+}
+
+async function renderStage(receiptEl, kind) {
+  const lib = await loadLib();
+  const stage = buildStage(receiptEl, kind);
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  // 무대는 화면 밖(left:-10000px)에 있지만, 그림 안에서는 제자리에 그려야 한다
+  const opts = { pixelRatio: 3, skipFonts: true, imagePlaceholder: BLANK, filter: baseFilter, style: { position: 'static', left: '0', top: '0' } };
+  try {
+    try {
+      return await lib.toBlob(stage, opts);
+    } catch (e) {
+      return await lib.toBlob(stage, { ...opts, filter: noImgFilter }); // 앨범 커버를 못 그리면 빼고
+    }
+  } finally {
+    stage.remove();
+  }
+}
+
+// 같은 영수증이면 한 번만 만든다
+export function getInstaImage(receiptEl, kind) {
+  receiptEl._insta = receiptEl._insta || {};
+  if (!receiptEl._insta[kind]) {
+    receiptEl._insta[kind] = renderStage(receiptEl, kind).then((b) => {
+      if (!b) throw new Error('empty');
+      return b;
+    });
+    receiptEl._insta[kind].catch(() => { delete receiptEl._insta[kind]; });
+  }
+  return receiptEl._insta[kind];
+}
+
+// 영수증이 다 나온 뒤 미리 만들어 둔다 (실패해도 조용히 — 누를 때 다시 만든다)
+// 노래 칸이 아직 불러오는 중이면 조금 기다렸다가 만든다 (최대 약 10초)
+export function warmInstaImages(receiptEl) {
+  let tries = 0;
+  const go = () => {
+    if (!receiptEl.isConnected) return;
+    const songLoading = receiptEl.querySelector('.receipt__song-slot[aria-busy="true"]') ||
+      (receiptEl.querySelector('.receipt__song-slot') && !receiptEl.querySelector('.receipt__song'));
+    if (songLoading && ++tries < 16) { setTimeout(go, 500); return; }
+    getInstaImage(receiptEl, 'story').catch(() => {});
+    getInstaImage(receiptEl, 'sticker').catch(() => {});
+  };
+  setTimeout(go, 2600);
+}

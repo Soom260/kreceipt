@@ -483,6 +483,69 @@ const shot = (page, name) => page.screenshot({ path: `out/${name}.png`, fullPage
   await C.close();
 }
 
+// 17) 인스타 스토리: 스티커로 복사(투명 PNG) / 스토리로 보내기(1080×1920) / 공유 창이 없을 때
+{
+  const { writeFileSync } = await import('node:fs');
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, permissions: ['clipboard-read', 'clipboard-write'] });
+  const p = await ctx.newPage();
+  p.on('pageerror', (e) => record('페이지 오류 없음(인스타)', false, e.message));
+  // 공유 창 흉내: 넘겨받은 파일을 기억해 둔다
+  await p.addInitScript(() => {
+    window.__shared = null;
+    navigator.canShare = (d) => !!(d && d.files && d.files.length);
+    navigator.share = async (d) => { window.__shared = d.files[0]; };
+  });
+  await p.goto(BASE + '#home');
+  await p.click('#view-home [data-manual]');
+  await p.fill('#rows .tx__cell--name input', '아메리카노 ×2');
+  await p.fill('#rows .tx__cell--amount input', '9000');
+  await p.click('#to-step3');
+  await p.click('.mood[data-mood="good"]');
+  await p.fill('#message', '오늘도 잘 썼다');
+  await p.click('#to-step4');
+  await p.waitForURL(/#make-4/);
+  await p.waitForTimeout(3500); // 미리 만들어 두기 끝날 때까지
+
+  await p.click('#copy-sticker');
+  await p.waitForTimeout(1200);
+  const clip = await p.evaluate(async () => {
+    const items = await navigator.clipboard.read();
+    const it = items.find((i) => i.types.includes('image/png'));
+    if (!it) return { ok: false, types: items.map((i) => i.types.join(',')) };
+    const blob = await it.getType('image/png');
+    const bmp = await createImageBitmap(blob);
+    const c = new OffscreenCanvas(bmp.width, bmp.height);
+    const g = c.getContext('2d');
+    g.drawImage(bmp, 0, 0);
+    const corner = g.getImageData(2, 2, 1, 1).data[3];
+    const center = g.getImageData(bmp.width >> 1, bmp.height >> 1, 1, 1).data[3];
+    const bytes = Array.from(new Uint8Array(await blob.arrayBuffer()));
+    return { ok: true, w: bmp.width, h: bmp.height, corner, center, bytes };
+  });
+  record('스티커로 복사: 클립보드에 PNG, 모서리 투명·가운데 불투명', clip.ok && clip.corner === 0 && clip.center === 255, clip.ok ? `${clip.w}×${clip.h}, 모서리 알파 ${clip.corner}` : JSON.stringify(clip));
+  if (clip.ok) writeFileSync('out/insta-sticker.png', Buffer.from(clip.bytes));
+  record('스티커 복사 안내 문구', /스티커를 복사했어요/.test(await p.textContent('#share-status')));
+
+  await p.click('#share-story');
+  await p.waitForFunction(() => window.__shared, null, { timeout: 15000 });
+  const shared = await p.evaluate(async () => {
+    const f = window.__shared;
+    const bmp = await createImageBitmap(f);
+    return { name: f.name, type: f.type, w: bmp.width, h: bmp.height, bytes: Array.from(new Uint8Array(await f.arrayBuffer())) };
+  });
+  record('스토리로 보내기: 공유 창에 1080×1920 PNG', shared.type === 'image/png' && shared.w === 1080 && shared.h === 1920, `${shared.name} ${shared.w}×${shared.h}`);
+  writeFileSync('out/insta-story.png', Buffer.from(shared.bytes));
+
+  // 공유 창이 없는 브라우저: 스토리 이미지를 창에 띄움
+  await p.evaluate(() => { navigator.canShare = undefined; navigator.share = undefined; });
+  await p.click('#share-story');
+  await p.waitForSelector('#img-dialog[open] #img-dialog-img[src^="blob:"]', { timeout: 15000 });
+  record('공유 창 없으면 스토리 이미지 창', /스토리 이미지/.test(await p.textContent('#img-dialog-title')));
+  await p.click('#img-dialog-close');
+  record('360px~390px 4단계 인스타 버튼 줄 가로 넘침 없음', (await overflow(p)) <= 0);
+  await ctx.close();
+}
+
 await browser.close();
 const fail = results.filter((r) => !r.ok).length;
 console.log(`\n${results.length - fail}/${results.length} 통과`);

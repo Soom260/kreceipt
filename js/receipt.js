@@ -87,6 +87,7 @@ export function renderReceipt(data, { flat = false, animate = true } = {}) {
   r.append(el('hr', 'receipt__rule'));
   const tot = el('div', 'receipt__total');
   const totNum = el('span', '', formatWon(total));
+  totNum.dataset.final = formatWon(total); // 이미지로 만들 때 쓰는 마지막 숫자
   tot.append(el('span', '', 'TOTAL'), totNum);
   r.append(tot);
   if (animate && !reduce) countUp(totNum, total);

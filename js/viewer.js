@@ -7,6 +7,8 @@ import { addToBox, findInBox, isAvailable, getNick } from './storage.js';
 import { renderReceipt } from './receipt.js';
 import { fillReceiptSong } from './music.js';
 import { saveImage } from './maker.js';
+import { setupInstaButtons } from './insta.js';
+import { warmInstaImages } from './image.js';
 import { checkNick, setFieldError, clearFieldError } from './validate.js';
 import { receiptId, myReply, sendReply, renderReplies, loadRepliesInto, stickerOf, whyReply } from './reactions.js';
 
@@ -135,6 +137,7 @@ export async function showReceived(code) {
   clearState(state, '친구 영수증');
   body.hidden = false;
   if (res.data.s) fillReceiptSong(r.querySelector('.receipt__song-slot'), res.data.s);
+  warmInstaImages(r);
   setupReplies(!!(entry && entry.kind === 'mine'));
 }
 
@@ -163,6 +166,13 @@ export function setupViewer() {
     if (name) $('read-title').textContent = `${name}님이 보낸 영수증`;
     if (res === 'added') confetti(30);
     setKeepButton(findInBox(current.code));
+  });
+  setupInstaButtons({
+    copyBtn: $('read-sticker'),
+    shareBtn: $('read-story'),
+    statusEl: $('keep-status'),
+    getReceipt: () => $('read-receipt').querySelector('.receipt'),
+    getDate: () => (current ? current.data.d : 'receipt'),
   });
   $('read-image').addEventListener('click', () => {
     if (current) saveImage($('read-receipt').querySelector('.receipt'), current.data.d, $('keep-status'), $('read-image'));
