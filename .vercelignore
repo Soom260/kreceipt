@@ -1,0 +1,12 @@
+# 버셀에 올리지 않을 파일 (.gitignore 와 같은 목록 + 점검 도구)
+private/
+.env
+.env.*
+node_modules/
+tools/
+worker/
+docs/
+.github/
+.dev.vars
+test-results/
+playwright-report/
