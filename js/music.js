@@ -1,10 +1,10 @@
 // "오늘의 노래" — iTunes Search API 로 노래를 찾고, 30초 미리듣기를 재생하는 파일.
 // 인증키가 필요 없는 공개 API. 브라우저에서 바로 호출된다 (2026-10-14 확인: Access-Control-Allow-Origin: *).
 // fetch 가 막히는 환경을 위해 JSONP 우회로도 둔다.
-// iTunes 검색이 실패하면(아이폰에서 Apple 이 음악 앱으로 돌려보내는 경우 등) Deezer 로 다시 찾는다 (곡마다 출처 src 를 기억).
+// 먼저 우리 Vercel 서버를 거쳐 iTunes 를 부르고, 안 되면 브라우저에서 직접, 그래도 안 되면 Deezer 로 찾는다 (곡마다 출처 src 를 기억).
 // 호출 제한(분당 약 20회)이 있어 검색은 입력 후 잠깐 기다렸다가(디바운스) 보낸다.
 
-import { ITUNES, DEEZER, API_BASE, API_TIMEOUT_MS, LIMITS, SEARCH_DEBOUNCE_MS, SIM, SIM_SLOW_MS, wait } from './config.js';
+import { ITUNES, DEEZER, SONG_API_BASE, API_TIMEOUT_MS, LIMITS, SEARCH_DEBOUNCE_MS, SIM, SIM_SLOW_MS, wait } from './config.js';
 import { showLoading, showEmpty, showError, clearState, reportState } from './states.js';
 import { setFieldError, clearFieldError } from './validate.js';
 
@@ -123,13 +123,13 @@ async function searchItunes(term, signal) {
   return (data.results || []).filter((r) => r.trackId).map(normalize);
 }
 
-// 우리 서버(Cloudflare Worker)를 거쳐 iTunes 부르기
+// 우리 서버(Vercel 함수, api/ 폴더)를 거쳐 iTunes 부르기
 async function viaServer(path, signal) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), API_TIMEOUT_MS);
   if (signal) signal.addEventListener('abort', () => ctrl.abort());
   try {
-    const res = await fetch(`${API_BASE}${path}`, { signal: ctrl.signal });
+    const res = await fetch(`${SONG_API_BASE}${path}`, { signal: ctrl.signal });
     const data = await res.json().catch(() => null);
     if (!res.ok || !data || !data.ok) throw Object.assign(new Error((data && data.code) || 'HTTP ' + res.status), { kind: data && data.code === 'limit' ? 'limit' : 'server' });
     return data;
@@ -141,24 +141,26 @@ async function viaServer(path, signal) {
   }
 }
 
-// 노래 찾기 순서: ① 브라우저에서 iTunes 직접 → ② 우리 서버를 거쳐 iTunes → ③ Deezer (마지막 대안)
-// ①은 PC·안드로이드에서 잘 되고, 아이폰은 Apple 이 음악 앱으로 돌려보낼 때가 있어 ②로 넘어간다.
-// ②는 서버가 다른 이용자와 주소를 함께 써서 Apple 호출 제한(429)에 걸릴 때가 있다 (2026-10-16 확인).
+// 노래 찾기 순서: ① 우리 서버(Vercel)를 거쳐 iTunes → ② 브라우저에서 iTunes 직접 → ③ Deezer (마지막 대안)
+// ①을 먼저 쓰는 이유: 아이폰은 Apple 이 브라우저의 직접 요청을 음악 앱으로 돌려보낼 때가 있다.
+// Vercel 서버에서는 Apple 이 막지 않는다 (2026-10-28 확인, Cloudflare Worker 는 429/403).
 export async function searchSongs(term, signal) {
   if (SIM.empty) { if (SIM.slow) await wait(SIM_SLOW_MS); return []; }
   const errors = [];
+  if (!SIM.error) {
+    try {
+      const data = await viaServer(`/songs?${new URLSearchParams({ term })}`, signal);
+      return data.results || [];
+    } catch (e) {
+      if (e.kind === 'abort') throw e;
+      errors.push('server:' + e.message);
+    }
+  }
   try {
     return await searchItunes(term, signal);
   } catch (e) {
     if (e.kind === 'abort' || SIM.error) throw e;
     errors.push('direct:' + (e.detail || e.message));
-  }
-  try {
-    const data = await viaServer(`/songs?${new URLSearchParams({ term })}`, signal);
-    return data.results || [];
-  } catch (e) {
-    if (e.kind === 'abort') throw e;
-    errors.push('server:' + e.message);
   }
   try {
     return await searchDeezer(term, signal);
@@ -174,16 +176,16 @@ export async function lookupSong(id, src = 'it') {
     const t = await getDeezer(`${DEEZER.track}${encodeURIComponent(id)}`);
     return t && t.id === id ? normalizeDeezer(t) : null;
   }
-  try {
-    const q = new URLSearchParams({ id: String(id), country: ITUNES.country });
-    const data = await getJSON(`${ITUNES.lookup}?${q}`);
-    const r = (data.results || []).find((x) => x.trackId === id);
-    return r ? normalize(r) : null;
-  } catch (e) {
-    if (SIM.error) throw e;
-    const data = await viaServer(`/song?id=${encodeURIComponent(id)}`);
-    return data.result || null;
+  if (!SIM.error) {
+    try {
+      const data = await viaServer(`/song?id=${encodeURIComponent(id)}`);
+      return data.result || null;
+    } catch (e) { /* 서버가 안 되면 브라우저에서 직접 */ }
   }
+  const q = new URLSearchParams({ id: String(id), country: ITUNES.country });
+  const data = await getJSON(`${ITUNES.lookup}?${q}`);
+  const r = (data.results || []).find((x) => x.trackId === id);
+  return r ? normalize(r) : null;
 }
 
 // ───────── 미리듣기 재생 (한 번에 한 곡) ─────────

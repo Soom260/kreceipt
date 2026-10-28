@@ -50,6 +50,10 @@ export const DEEZER = {
 export const API_BASE = 'https://kreceipt-api.soom260.workers.dev';
 export const API_TIMEOUT_MS = 9000;
 
+// 노래 검색 중계 서버 (Vercel 함수, api/ 폴더). Cloudflare 는 Apple 이 429/403 으로 막아서 노래만 여기로 옮겼다 (2026-10-28).
+// GitHub Pages 화면에서도 쓰도록 전체 주소로 적는다 (api/_itunes.js 의 ALLOWED_ORIGINS 에 화면 주소가 있어야 함).
+export const SONG_API_BASE = 'https://kreceipt.vercel.app/api';
+
 // 오늘의 기분 (링크에는 짧은 이름만 담는다)
 export const MOODS = [
   ['love', '🥰', '설렘'], ['good', '😊', '좋음'], ['fun', '🥳', '신남'], ['calm', '😌', '평온'],

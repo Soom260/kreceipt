@@ -20,3 +20,5 @@ playwright-report/
 Thumbs.db
 desktop.ini
 .vscode/
+.vercel
+.env*

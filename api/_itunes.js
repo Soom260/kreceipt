@@ -2,7 +2,7 @@
 // 왜 Vercel 인가: 아이폰 브라우저는 Apple 이 iTunes 검색을 음악 앱(musics://)으로 돌려보내고,
 // Cloudflare Worker 에서 부르면 Apple 이 429/403 으로 막는다 (2026-10-18 확인). Vercel 서버에서는 정상.
 
-const ALLOWED_ORIGINS = ['https://soom260.github.io', 'http://127.0.0.1:8765', 'http://localhost:8765'];
+const ALLOWED_ORIGINS = ['https://soom260.github.io', 'https://kreceipt.vercel.app','http://127.0.0.1:8765', 'http://localhost:8765'];
 const UA = 'kreceipt/1.0 (+https://soom260.github.io/kreceipt/)';
 const COUNTRY = 'US';
 
