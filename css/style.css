@@ -408,7 +408,6 @@ textarea.input { resize: vertical; line-height: 1.5; }
 .state-box { margin: 1rem 0; }
 .state { background: var(--card); border-radius: var(--radius); padding: 1.1rem; box-shadow: var(--shadow); animation: rise .4s var(--ease) both; }
 .state__title { font-weight: 800; font-size: 1.02rem; margin-bottom: 0.4rem; }
-.state--empty::before { content: "🫧"; display: block; font-size: 1.8rem; margin-bottom: 0.3rem; }
 .state--error { box-shadow: var(--shadow), inset 4px 0 0 var(--error); }
 .state--error dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.3rem 0.7rem; font-size: 0.93rem; }
 .state--error dt { font-weight: 800; color: var(--error); }
@@ -614,9 +613,8 @@ textarea.input { resize: vertical; line-height: 1.5; }
 
 /* ───────── 인스타 스토리 버튼·이미지 만들기 무대 ───────── */
 .insta-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
-/* 두 칸에 들어가도록 아이콘을 위에, 글자는 두 줄까지 고르게 */
-.btn--insta { flex-direction: column; gap: 0.15rem; min-height: 72px; font-size: 0.9rem; line-height: 1.3; padding: 0.55rem 0.6rem; text-wrap: balance; background: var(--card); box-shadow: inset 0 0 0 1.5px var(--pink-line); color: var(--pink-ink); }
-.btn--insta > span[aria-hidden] { font-size: 1.15rem; }
+/* 두 칸에 들어가도록 글자는 두 줄까지 고르게 */
+.btn--insta { min-height: 60px; font-size: 0.9rem; line-height: 1.3; padding: 0.5rem 0.7rem; text-wrap: balance; background: var(--card); box-shadow: inset 0 0 0 1.5px var(--pink-line); color: var(--pink-ink); }
 /* 화면 밖에서 잠깐 그리는 곳 (사용자에게는 안 보임) */
 .export-stage { position: fixed; left: -10000px; top: 0; pointer-events: none; }
 .export-stage--sticker { padding: 26px 30px 40px; background: transparent; }

@@ -216,7 +216,7 @@ function renderFriendChips(all) {
   box.replaceChildren(chip('모든 친구', null, 0), ...names.map(([name, n]) => chip(name, name, n)));
 }
 
-// 내 영수증 카드에 답장 요약 (😂🥹 2) — 화면에 보이는 것만, 실패하면 조용히 비워 둔다
+// 내 영수증 카드에 답장 요약 (받은 답장 2개 · ㅋㅋㅋ, 찡해) — 화면에 보이는 것만, 실패하면 조용히 비워 둔다
 async function fillReplySummaries() {
   const slots = [...document.querySelectorAll('#box-list .box-item__replies')].slice(0, 20);
   await Promise.all(slots.map(async (slot) => {
@@ -224,8 +224,8 @@ async function fillReplySummaries() {
       const list = await getReplies(await receiptId(slot.dataset.key));
       if (!slot.isConnected) return;
       if (!list.length) { slot.textContent = '아직 받은 답장이 없어요'; slot.classList.add('is-empty'); return; }
-      const emojis = [...new Set(list.map((r) => (stickerOf(r.s) || [, '💬'])[1]))].join('');
-      slot.textContent = `💬 받은 답장 ${emojis} ${list.length}`;
+      const kinds = [...new Set(list.map((r) => (stickerOf(r.s) || [])[2]).filter(Boolean))].join(', ');
+      slot.textContent = `받은 답장 ${list.length}개${kinds ? ' · ' + kinds : ''}`;
       slot.setAttribute('aria-label', `받은 답장 ${list.length}개`);
     } catch (e) {
       slot.textContent = '';

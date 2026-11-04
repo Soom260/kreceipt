@@ -22,33 +22,33 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <!-- 본문 글꼴 Pretendard 1.3.9 (SIL OFL) -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="css/style.css?v=202611042158">
+<link rel="stylesheet" href="css/style.css?v=202611042207">
 <!-- 링크 압축 라이브러리 (버전 고정 + 무결성 확인) -->
 <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js" integrity="sha384-0d+Gr7vM4Drod8E3hXKgciWJSWbjD/opKLLygI9ktiWbuvlDwQLzU46wJ9s5gsp7" crossorigin="anonymous"></script>
 <!-- 새로 올릴 때마다 v= 값을 바꾸면 휴대전화가 옛 파일 대신 새 파일을 받는다 (tools/bump-version.mjs) -->
 <script type="importmap">
 { "imports": {
-  "./js/app.js": "./js/app.js?v=202611042158",
-  "./js/box.js": "./js/box.js?v=202611042158",
-  "./js/config.js": "./js/config.js?v=202611042158",
-  "./js/image.js": "./js/image.js?v=202611042158",
-  "./js/maker.js": "./js/maker.js?v=202611042158",
-  "./js/music.js": "./js/music.js?v=202611042158",
-  "./js/ocr.js": "./js/ocr.js?v=202611042158",
-  "./js/parse.js": "./js/parse.js?v=202611042158",
-  "./js/receipt.js": "./js/receipt.js?v=202611042158",
-  "./js/share.js": "./js/share.js?v=202611042158",
-  "./js/states.js": "./js/states.js?v=202611042158",
-  "./js/storage.js": "./js/storage.js?v=202611042158",
-  "./js/validate.js": "./js/validate.js?v=202611042158",
-  "./js/viewer.js": "./js/viewer.js?v=202611042158",
-  "./js/weather.js": "./js/weather.js?v=202611042158",
-  "./js/places.js": "./js/places.js?v=202611042158",
-  "./js/reactions.js": "./js/reactions.js?v=202611042158",
-  "./js/insta.js": "./js/insta.js?v=202611042158"
+  "./js/app.js": "./js/app.js?v=202611042207",
+  "./js/box.js": "./js/box.js?v=202611042207",
+  "./js/config.js": "./js/config.js?v=202611042207",
+  "./js/image.js": "./js/image.js?v=202611042207",
+  "./js/maker.js": "./js/maker.js?v=202611042207",
+  "./js/music.js": "./js/music.js?v=202611042207",
+  "./js/ocr.js": "./js/ocr.js?v=202611042207",
+  "./js/parse.js": "./js/parse.js?v=202611042207",
+  "./js/receipt.js": "./js/receipt.js?v=202611042207",
+  "./js/share.js": "./js/share.js?v=202611042207",
+  "./js/states.js": "./js/states.js?v=202611042207",
+  "./js/storage.js": "./js/storage.js?v=202611042207",
+  "./js/validate.js": "./js/validate.js?v=202611042207",
+  "./js/viewer.js": "./js/viewer.js?v=202611042207",
+  "./js/weather.js": "./js/weather.js?v=202611042207",
+  "./js/places.js": "./js/places.js?v=202611042207",
+  "./js/reactions.js": "./js/reactions.js?v=202611042207",
+  "./js/insta.js": "./js/insta.js?v=202611042207"
 } }
 </script>
-<script type="module" src="./js/app.js?v=202611042158"></script>
+<script type="module" src="./js/app.js?v=202611042207"></script>
 </head>
 <body>
 
@@ -115,7 +115,6 @@
     <div class="upload">
       <input type="file" id="capture-file" class="upload__input" accept="image/png,image/jpeg,image/webp" aria-describedby="capture-hint">
       <label for="capture-file" class="upload__box" id="capture-label">
-        <span class="upload__icon" aria-hidden="true">📷</span>
         <span class="upload__title" id="capture-name">캡처 이미지 고르기</span>
         <span class="upload__sub" id="capture-hint">PNG·JPG·WEBP, 10MB 이하 · 이 브라우저 안에서만 읽어요</span>
       </label>
@@ -125,9 +124,9 @@
     <div class="divider"><span>또는</span></div>
 
     <ul class="menu-list">
-      <li><button type="button" class="menu-item" data-sample="1"><span class="menu-item__icon" aria-hidden="true">🧾</span><span class="menu-item__text"><b>샘플 캡처로 해보기</b><small>하루치 · 가상 데이터</small></span><span class="menu-item__chev" aria-hidden="true">›</span></button></li>
-      <li><button type="button" class="menu-item" data-sample="2"><span class="menu-item__icon" aria-hidden="true">🗓️</span><span class="menu-item__text"><b>샘플 캡처로 해보기 (이틀치)</b><small>날짜가 섞인 화면 · 가상 데이터</small></span><span class="menu-item__chev" aria-hidden="true">›</span></button></li>
-      <li><button type="button" class="menu-item" data-manual><span class="menu-item__icon" aria-hidden="true">✍️</span><span class="menu-item__text"><b>캡처 없이 직접 입력하기</b><small>가게 이름과 금액을 바로 적어요</small></span><span class="menu-item__chev" aria-hidden="true">›</span></button></li>
+      <li><button type="button" class="menu-item" data-sample="1"><span class="menu-item__text"><b>샘플 캡처로 해보기</b><small>하루치 · 가상 데이터</small></span><span class="menu-item__chev" aria-hidden="true">›</span></button></li>
+      <li><button type="button" class="menu-item" data-sample="2"><span class="menu-item__text"><b>샘플 캡처로 해보기 (이틀치)</b><small>날짜가 섞인 화면 · 가상 데이터</small></span><span class="menu-item__chev" aria-hidden="true">›</span></button></li>
+      <li><button type="button" class="menu-item" data-manual><span class="menu-item__text"><b>캡처 없이 직접 입력하기</b><small>가게 이름과 금액을 바로 적어요</small></span><span class="menu-item__chev" aria-hidden="true">›</span></button></li>
     </ul>
 
     <div class="sample-preview" id="sample-preview" hidden>
@@ -189,7 +188,7 @@
     <div class="field card" id="weather-card">
       <p class="label" id="weather-label">그날의 날씨 <span class="opt">(선택)</span></p>
       <p class="hint" id="weather-hint">위치는 약 5km 칸으로만 바꿔 날씨를 찾는 데 쓰고, 어디에도 저장하지 않아요.</p>
-      <button type="button" class="btn btn--soft btn--block" id="weather-gps" aria-describedby="weather-hint"><span aria-hidden="true">📍</span> 내 위치로 날씨 넣기</button>
+      <button type="button" class="btn btn--soft btn--block" id="weather-gps" aria-describedby="weather-hint">내 위치로 날씨 넣기</button>
       <label for="weather-region" class="label label--sub">또는 지역 고르기</label>
       <select id="weather-region" class="input select"></select>
       <div class="picked weather-picked" id="weather-picked" hidden></div>
@@ -252,12 +251,12 @@
 
     <div class="share">
       <div class="stack-btns">
-        <button type="button" class="btn btn--primary btn--block" id="share-link"><span aria-hidden="true">💌</span> 링크 보내기</button>
+        <button type="button" class="btn btn--primary btn--block" id="share-link">링크 보내기</button>
         <div class="insta-row">
-          <button type="button" class="btn btn--insta" id="share-story"><span aria-hidden="true">📸</span> 인스타 스토리로 보내기</button>
-          <button type="button" class="btn btn--insta" id="copy-sticker"><span aria-hidden="true">📋</span> 스티커로 복사</button>
+          <button type="button" class="btn btn--insta" id="share-story">인스타 스토리로 보내기</button>
+          <button type="button" class="btn btn--insta" id="copy-sticker">스티커로 복사</button>
         </div>
-        <button type="button" class="btn btn--block" id="save-image"><span aria-hidden="true">🖼️</span> 이미지로 저장</button>
+        <button type="button" class="btn btn--block" id="save-image">이미지로 저장</button>
       </div>
       <p class="note">이 링크를 받은 사람은 누구나 이 영수증을 볼 수 있어요.</p>
       <p class="status-line" id="share-status" role="status" aria-live="polite"></p>
@@ -303,8 +302,8 @@
       <div class="stack-btns">
         <button type="button" class="btn btn--primary btn--block" id="keep-btn">보관하기</button>
         <div class="insta-row">
-          <button type="button" class="btn btn--insta" id="read-story"><span aria-hidden="true">📸</span> 인스타 스토리로 보내기</button>
-          <button type="button" class="btn btn--insta" id="read-sticker"><span aria-hidden="true">📋</span> 스티커로 복사</button>
+          <button type="button" class="btn btn--insta" id="read-story">인스타 스토리로 보내기</button>
+          <button type="button" class="btn btn--insta" id="read-sticker">스티커로 복사</button>
         </div>
         <button type="button" class="btn btn--block" id="read-image">이미지로 저장</button>
         <a class="btn btn--text" href="#make-1">나도 영수증 만들기</a>

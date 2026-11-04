@@ -465,7 +465,7 @@ const shot = (page, name) => page.screenshot({ path: `out/${name}.png`, fullPage
   record('보낸 사람 4단계: 받은 답장 보임', /민지 · 맛있겠다/.test(await pa.textContent('#my-replies-list')));
   await pa.click('.top nav a[href="#box"]');
   await pa.waitForFunction(() => /받은 답장/.test(document.querySelector('#box-list .box-item__replies')?.textContent || ''), null, { timeout: 15000 });
-  record('보관함 내 영수증 카드: 답장 요약', /😋 1/.test(await pa.textContent('#box-list .box-item__replies')), await pa.textContent('#box-list .box-item__replies'));
+  record('보관함 내 영수증 카드: 답장 요약', /받은 답장 1개 · 맛있겠다/.test(await pa.textContent('#box-list .box-item__replies')), await pa.textContent('#box-list .box-item__replies'));
   await shot(pa, 'box-reply-summary');
   // 내 영수증을 링크로 열면 스티커 대신 받은 답장만
   await pa.goto(link);
