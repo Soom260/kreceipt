@@ -459,7 +459,9 @@ textarea.input { resize: vertical; line-height: 1.5; }
 /* 영수증이 인쇄되듯 위에서부터 나오고, 줄이 차례로 나타난다 */
 .receipt.is-printing { animation: receiptPrint 1.1s cubic-bezier(.33,1,.68,1) both; }
 .receipt.is-printing > * { animation: rise .45s var(--ease) both; animation-delay: calc(.25s + var(--ri, 0) * 70ms); }
-@keyframes receiptPrint { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
+/* 자르는 범위를 영수증 바깥 그림자(아래 약 70px)까지 넓혀 둔다.
+   inset(0) 으로 끝나면 모션이 끝난 뒤에도 그림자가 잘려, is-printing 을 지우는 6.5초 뒤에야 보였다 (2026-11-04 고침) */
+@keyframes receiptPrint { from { clip-path: inset(-80px -80px 100% -80px); } to { clip-path: inset(-80px -80px -110px -80px); } }
 .receipt__barcode { position: relative; }
 .receipt.is-printing .receipt__barcode::after {
   content: ""; position: absolute; top: 0; bottom: 0; left: -45%; width: 36%;
