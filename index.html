@@ -22,33 +22,34 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <!-- 본문 글꼴 Pretendard 1.3.9 (SIL OFL) -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="css/style.css?v=202611042226">
+<link rel="stylesheet" href="css/style.css?v=202611181559">
 <!-- 링크 압축 라이브러리 (버전 고정 + 무결성 확인) -->
 <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js" integrity="sha384-0d+Gr7vM4Drod8E3hXKgciWJSWbjD/opKLLygI9ktiWbuvlDwQLzU46wJ9s5gsp7" crossorigin="anonymous"></script>
 <!-- 새로 올릴 때마다 v= 값을 바꾸면 휴대전화가 옛 파일 대신 새 파일을 받는다 (tools/bump-version.mjs) -->
 <script type="importmap">
 { "imports": {
-  "./js/app.js": "./js/app.js?v=202611042226",
-  "./js/box.js": "./js/box.js?v=202611042226",
-  "./js/config.js": "./js/config.js?v=202611042226",
-  "./js/image.js": "./js/image.js?v=202611042226",
-  "./js/maker.js": "./js/maker.js?v=202611042226",
-  "./js/music.js": "./js/music.js?v=202611042226",
-  "./js/ocr.js": "./js/ocr.js?v=202611042226",
-  "./js/parse.js": "./js/parse.js?v=202611042226",
-  "./js/receipt.js": "./js/receipt.js?v=202611042226",
-  "./js/share.js": "./js/share.js?v=202611042226",
-  "./js/states.js": "./js/states.js?v=202611042226",
-  "./js/storage.js": "./js/storage.js?v=202611042226",
-  "./js/validate.js": "./js/validate.js?v=202611042226",
-  "./js/viewer.js": "./js/viewer.js?v=202611042226",
-  "./js/weather.js": "./js/weather.js?v=202611042226",
-  "./js/places.js": "./js/places.js?v=202611042226",
-  "./js/reactions.js": "./js/reactions.js?v=202611042226",
-  "./js/insta.js": "./js/insta.js?v=202611042226"
+  "./js/app.js": "./js/app.js?v=202611181559",
+  "./js/box.js": "./js/box.js?v=202611181559",
+  "./js/config.js": "./js/config.js?v=202611181559",
+  "./js/image.js": "./js/image.js?v=202611181559",
+  "./js/maker.js": "./js/maker.js?v=202611181559",
+  "./js/music.js": "./js/music.js?v=202611181559",
+  "./js/ocr.js": "./js/ocr.js?v=202611181559",
+  "./js/parse.js": "./js/parse.js?v=202611181559",
+  "./js/receipt.js": "./js/receipt.js?v=202611181559",
+  "./js/share.js": "./js/share.js?v=202611181559",
+  "./js/states.js": "./js/states.js?v=202611181559",
+  "./js/storage.js": "./js/storage.js?v=202611181559",
+  "./js/validate.js": "./js/validate.js?v=202611181559",
+  "./js/viewer.js": "./js/viewer.js?v=202611181559",
+  "./js/weather.js": "./js/weather.js?v=202611181559",
+  "./js/places.js": "./js/places.js?v=202611181559",
+  "./js/reactions.js": "./js/reactions.js?v=202611181559",
+  "./js/settle.js": "./js/settle.js?v=202611181559",
+  "./js/insta.js": "./js/insta.js?v=202611181559"
 } }
 </script>
-<script type="module" src="./js/app.js?v=202611042226"></script>
+<script type="module" src="./js/app.js?v=202611181559"></script>
 </head>
 <body>
 
@@ -317,6 +318,12 @@
     <h1 id="box-title" tabindex="-1">보관함</h1>
     <p class="lead">이 브라우저에만 보관돼요. 브라우저 데이터를 지우면 사라지니 가끔 파일로 내보내 두세요.</p>
 
+    <!-- 정산 영수증: 모인 영수증을 한 장으로 -->
+    <div class="settle-cta">
+      <a class="btn btn--primary btn--block" href="#settle" id="settle-open">정산 영수증 만들기</a>
+      <p class="hint">이번 주·이번 달 내 영수증을 한 장으로 모아요.</p>
+    </div>
+
     <div class="tabs" role="group" aria-label="보관함 보기 방식" data-active="all">
       <span class="tabs__pill" aria-hidden="true"></span>
       <button type="button" class="tab" data-filter="all" aria-pressed="true">전체</button>
@@ -353,11 +360,80 @@
     </details>
   </section>
 
+  <!-- ───────── 정산 영수증 (#settle) ───────── -->
+  <section class="view" id="view-settle" data-view="settle" hidden aria-labelledby="settle-title">
+    <h1 id="settle-title" tabindex="-1">정산 영수증</h1>
+
+    <div id="settle-form">
+      <p class="lead">보관함에 모인 내 영수증을 한 장으로 정산해요. 친구 영수증과 이전 정산 영수증은 더하지 않아요.</p>
+
+      <div class="field card">
+        <p class="label" id="range-label">어떤 영수증을 모을까요?</p>
+        <div class="range-grid" id="range-grid" role="group" aria-labelledby="range-label">
+          <button type="button" class="range" data-range="week" aria-pressed="false">이번 주</button>
+          <button type="button" class="range" data-range="month" aria-pressed="true">이번 달</button>
+          <button type="button" class="range" data-range="last" aria-pressed="false">지난 달</button>
+          <button type="button" class="range" data-range="pick" aria-pressed="false">직접 고르기</button>
+        </div>
+        <p class="hint range-note" id="range-note" tabindex="-1" aria-live="polite"></p>
+        <fieldset class="pick-fieldset" id="pick-box" hidden>
+          <legend class="sr-only">정산에 넣을 영수증</legend>
+          <ul class="pick-list" id="pick-list"></ul>
+        </fieldset>
+        <div class="state-box" id="settle-state" aria-live="polite"></div>
+      </div>
+
+      <div class="field card">
+        <label for="settle-note" class="label">정산 한마디 <span class="opt">(선택)</span></label>
+        <p class="hint" id="settle-note-hint">AI 추천을 누르면 고른 기간의 가게 이름·금액·기분·날씨만 오픈하사 AI 서버로 보내요. 이름과 캡처는 보내지 않아요.</p>
+        <button type="button" class="btn btn--soft btn--block" id="note-ai" aria-describedby="settle-note-hint">AI 한마디 추천받기</button>
+        <div class="state-box" id="note-state" aria-live="polite"></div>
+        <div class="note-chips" id="note-chips" role="group" aria-label="추천 한마디. 누르면 아래 칸에 들어가요"></div>
+        <textarea id="settle-note" class="input settle-note" rows="2" aria-describedby="settle-note-count"></textarea>
+        <p class="counter" id="settle-note-count" aria-live="polite">0 / 60</p>
+      </div>
+
+      <div class="field card">
+        <label for="settle-nick" class="label">보내는 사람 이름 <span class="opt">(선택)</span></label>
+        <input type="text" id="settle-nick" class="input" autocomplete="nickname">
+      </div>
+
+      <p class="field-error" id="settle-error" hidden></p>
+      <div class="cta">
+        <a class="btn btn--soft" href="#box">보관함</a>
+        <button type="button" class="btn btn--primary" id="settle-make">정산 영수증 만들기</button>
+      </div>
+    </div>
+
+    <div id="settle-result" hidden>
+      <div class="receipt-stage" id="settle-receipt"></div>
+      <p class="status-line" id="settle-save-status" role="status" aria-live="polite"></p>
+      <div class="stack-btns">
+        <button type="button" class="btn btn--primary btn--block" id="settle-link">링크 보내기</button>
+        <div class="insta-row">
+          <button type="button" class="btn btn--insta" id="settle-story">인스타 스토리로 보내기</button>
+          <button type="button" class="btn btn--insta" id="settle-sticker">스티커로 복사</button>
+        </div>
+        <button type="button" class="btn btn--block" id="settle-image">이미지로 저장</button>
+      </div>
+      <p class="note">이 링크를 받은 사람은 누구나 이 정산 영수증을 볼 수 있어요.</p>
+      <p class="status-line" id="settle-share-status" role="status" aria-live="polite"></p>
+      <div class="manual-copy" id="settle-manual" hidden>
+        <label for="settle-manual-link" class="label">아래 주소를 길게 눌러 복사해 주세요</label>
+        <input type="text" id="settle-manual-link" class="input" readonly>
+      </div>
+      <div class="chip-row">
+        <button type="button" class="btn btn--soft btn--small" id="settle-again">다시 정산하기</button>
+        <a class="btn btn--soft btn--small" href="#box">보관함 보기</a>
+      </div>
+    </div>
+  </section>
+
 </main>
 
 <footer class="foot">
   <p>kreceipt · 기술개발연구프로젝트 중간 MVP</p>
-  <p>캡처는 업로드하지 않고, 영수증은 어떤 서버에도 저장하지 않아요. 날씨: 기상청(공공데이터포털). 노래 정보: iTunes Search API, Deezer API.</p>
+  <p>캡처는 업로드하지 않고, 영수증은 어떤 서버에도 저장하지 않아요. 날씨: 기상청(공공데이터포털). 노래 정보: iTunes Search API, Deezer API. 정산 한마디 추천: 오픈하사(경북IT융합산업기술원) AI, 추천을 누를 때만 보내요.</p>
 </footer>
 
 <!-- 휴대전화에서 "이미지로 저장"을 누르면 뜨는 창: 이미지를 꾹 눌러 저장 -->

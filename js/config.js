@@ -54,6 +54,10 @@ export const API_TIMEOUT_MS = 9000;
 // GitHub Pages 화면에서도 쓰도록 전체 주소로 적는다 (api/_itunes.js 의 ALLOWED_ORIGINS 에 화면 주소가 있어야 함).
 export const SONG_API_BASE = 'https://kreceipt.vercel.app/api';
 
+// 정산 영수증 한마디 추천 (Vercel 함수 api/settle-note.js → 오픈하사 AI). 언어 모델이라 넉넉히 기다린다
+export const SETTLE_NOTE_URL = 'https://kreceipt.vercel.app/api/settle-note';
+export const AI_TIMEOUT_MS = 30000;
+
 // 오늘의 기분 (링크에는 짧은 이름만 담는다)
 export const MOODS = [
   ['love', '🥰', '설렘'], ['good', '😊', '좋음'], ['fun', '🥳', '신남'], ['calm', '😌', '평온'],

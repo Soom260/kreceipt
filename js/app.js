@@ -1,10 +1,11 @@
 // 앱 시작점. 주소의 # 뒤 값을 보고 어느 화면을 보여 줄지 정한다(해시 라우팅).
-//   #home · #make-1~4 · #r=(공유 영수증) · #box
+//   #home · #make-1~4 · #r=(공유 영수증) · #box · #settle(정산 영수증)
 // 뒤로 가기를 누르면 이전 # 으로 돌아가므로 단계 이동도 자연스럽게 된다.
 
 import { setupMaker, enterStep, startSample, startManual, takeFocusTarget } from './maker.js';
 import { setupViewer, showReceived } from './viewer.js';
 import { setupBox, renderBox } from './box.js';
+import { setupSettle, enterSettle } from './settle.js';
 import { stopPreview } from './music.js';
 import { copyText } from './share.js';
 import { reportState, watchStatusLines } from './states.js';
@@ -16,7 +17,7 @@ function show(viewName) {
   document.querySelectorAll('.view').forEach((v) => { v.hidden = v.dataset.view !== viewName; });
   // 화면 안 덩어리가 차례로 떠오르게 순서 번호(--i)를 붙인다 (css/style.css 의 .view > *)
   [...$(`view-${viewName}`).children].forEach((c, k) => c.style.setProperty('--i', Math.min(k, 8)));
-  const navKey = viewName.startsWith('make') ? 'make' : viewName;
+  const navKey = viewName.startsWith('make') ? 'make' : viewName === 'settle' ? 'box' : viewName;
   document.querySelectorAll('.top nav a').forEach((a) => {
     if (a.dataset.nav === navKey) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
@@ -51,6 +52,12 @@ function route() {
     renderBox({ reset: true });
     return;
   }
+  if (h === '#settle') {
+    show('settle');
+    enterSettle();
+    document.title = 'kreceipt — 정산 영수증';
+    return;
+  }
   show('home');
   reportState('홈', 'ok');
 }
@@ -76,6 +83,7 @@ function setup() {
   setupMaker();
   setupViewer();
   setupBox();
+  setupSettle();
   setupKakao();
   watchStatusLines();
   // 홈·1단계·빈 결과의 "샘플로 해보기" / "직접 입력하기" 버튼

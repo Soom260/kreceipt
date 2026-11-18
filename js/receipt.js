@@ -60,16 +60,22 @@ export function renderReceipt(data, { flat = false, animate = true } = {}) {
     wx ? `날씨 ${wx[1]} ${data.w.k === 'x' ? '최고 ' : ''}${data.w.t}도` : '',
     mood ? `기분 ${mood[2]}` : '',
   ].filter(Boolean).join(', ');
-  r.setAttribute('aria-label', `${data.d} 영수증, ${extra ? extra + ', ' : ''}항목 ${data.i.length}개, 합계 ${formatWon(total)}원`);
+  const what = data.p ? `${data.p.a}부터 ${data.d}까지 정산 영수증, 영수증 ${data.p.c}장 모음` : `${data.d} 영수증`;
+  r.setAttribute('aria-label', `${what}, ${extra ? extra + ', ' : ''}항목 ${data.i.length}개, 합계 ${formatWon(total)}원`);
 
   r.append(el('div', 'receipt__brand', 'KRECEIPT'));
-  // 날짜 줄: 2026-10-16 · THU · ☀️ 21° · 🥰
-  const meta = [formatDay(data.d)];
+  // 날짜 줄: 2026-10-16 · THU · ☀️ 21° · 🥰 (정산 영수증은 2026-11-01 ~ 2026-11-18)
+  const meta = [data.p ? `${data.p.a} ~ ${data.d}` : formatDay(data.d)];
   if (wx) meta.push(`${wx[0]} ${data.w.t}°`);
   if (mood) meta.push(mood[1]);
   const metaEl = el('div', 'receipt__meta', meta.join(' · '));
   metaEl.setAttribute('aria-hidden', 'true'); // 내용은 영수증 전체 설명(aria-label)에 있음
   r.append(metaEl);
+  if (data.p) {
+    const sub = el('div', 'receipt__meta', `정산 · 영수증 ${data.p.c}장`);
+    sub.setAttribute('aria-hidden', 'true');
+    r.append(sub);
+  }
   r.append(el('hr', 'receipt__rule'));
 
   const list = el('div', 'receipt__items');

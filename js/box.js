@@ -36,20 +36,24 @@ function itemEl(e, k) {
   const badge = document.createElement('span');
   badge.className = 'badge ' + (e.kind === 'mine' ? 'badge--mine' : 'badge--friend');
   badge.textContent = kindLabel(e);
+  // 정산 영수증은 표시를 하나 더 붙인다
+  const settle = document.createElement('span');
+  if (d.p) { settle.className = 'badge badge--settle'; settle.textContent = '정산'; }
   const who = document.createElement('span');
   who.className = 'box-item__who';
   who.textContent = friendName(e);
   const date = document.createElement('span');
   date.className = 'box-item__date';
   date.textContent = formatDayKo(d.d);
-  head.append(badge, who, date);
+  head.append(badge, ...(d.p ? [settle] : []), who, date);
 
   const sum = document.createElement('p');
   sum.className = 'box-item__sum';
   const names = d.i.slice(0, 2).map(([n]) => n).join(', ');
-  sum.textContent = `${names}${d.i.length > 2 ? ` 외 ${d.i.length - 2}개` : ''} · ${formatWon(totalOf(d))}원${d.m ? ` · "${d.m}"` : ''}`;
+  const what = d.p ? `${formatDayKo(d.p.a)}부터 · 영수증 ${d.p.c}장` : `${names}${d.i.length > 2 ? ` 외 ${d.i.length - 2}개` : ''}`;
+  sum.textContent = `${what} · ${formatWon(totalOf(d))}원${d.m ? ` · "${d.m}"` : ''}`;
 
-  const label = `${formatDayKo(d.d)} ${kindLabel(e)}${friendName(e) ? ` (${friendName(e)})` : ''}`;
+  const label = `${formatDayKo(d.d)} ${d.p ? '정산 ' : ''}${kindLabel(e)}${friendName(e) ? ` (${friendName(e)})` : ''}`;
   const btns = document.createElement('div');
   btns.className = 'row-btns';
   const open = document.createElement('a');

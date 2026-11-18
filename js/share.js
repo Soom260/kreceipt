@@ -5,6 +5,7 @@
 // { v:1, d:"2026-10-14", n:"숨", i:[["아메리카노 ×2", 9000], ...], m:"오늘도 잘 썼다", s:{ id:123, t:"곡명", a:"가수", p:"dz" } }
 // s.p 는 노래 출처: 없으면 iTunes, "dz" 면 Deezer
 // f 는 오늘의 기분 (예: "love"), w 는 그날 날씨 { c: "sun", t: 21, k: "n"(지금)|"x"(최고) } — 위치는 담지 않는다
+// p 는 정산 영수증일 때만: { a: 시작 날짜, c: 모은 영수증 장수, k: "week"|"month"|"last"|"pick" } (d 는 끝 날짜)
 // 금융기관명·계좌·잔액·원본 인식 글자는 절대 담지 않는다.
 
 import { LIMITS, MOODS, WEATHER } from './config.js';
@@ -12,6 +13,7 @@ import { charCount } from './validate.js';
 
 const LZ = () => window.LZString;
 const SCHEMA_VERSION = 1;
+const SETTLE_KINDS = ['week', 'month', 'last', 'pick'];
 
 // 사용자가 고른 내용만 골라 링크용 객체로 만든다 (빈 값은 빼서 링크를 짧게)
 export function buildReceipt({ date, nick, items, message, song, mood, weather }) {
@@ -59,6 +61,10 @@ export function validateReceipt(o) {
   if (o.s !== undefined) {
     const s = o.s;
     if (!s || !Number.isInteger(s.id) || s.id <= 0 || !isStr(s.t) || !isStr(s.a) || s.t.length > 200 || s.a.length > 200 || (s.p !== undefined && s.p !== 'dz')) return '노래 정보가 올바르지 않음';
+  }
+  if (o.p !== undefined) {
+    const p = o.p;
+    if (!p || !isStr(p.a) || !/^\d{4}-\d{2}-\d{2}$/.test(p.a) || p.a > o.d || !Number.isInteger(p.c) || p.c < 1 || p.c > 999 || !SETTLE_KINDS.includes(p.k)) return '정산 정보가 올바르지 않음';
   }
   return '';
 }

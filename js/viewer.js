@@ -126,7 +126,8 @@ export async function showReceived(code) {
   current = { code, data: res.data, id: null };
   const entry = findInBox(code);
   const who = (entry && entry.from) || res.data.n;
-  $('read-title').textContent = entry && entry.kind === 'mine' ? '내 영수증' : who ? `${who}님이 보낸 영수증` : '친구 영수증';
+  const kindName = res.data.p ? '정산 영수증' : '영수증';
+  $('read-title').textContent = entry && entry.kind === 'mine' ? `내 ${kindName}` : who ? `${who}님이 보낸 ${kindName}` : `친구 ${kindName}`;
   // 이름 칸: 링크에 보낸 사람 이름이 있으면 미리 채워 둔다 (고칠 수 있음)
   const fromInp = $('from-name');
   clearFieldError(fromInp);
@@ -163,7 +164,7 @@ export function setupViewer() {
     st.classList.remove('is-error');
     const name = fromInp.value.trim();
     st.textContent = res === 'added' ? `${name ? `${name}님의 영수증으로 ` : ''}보관함에 넣었어요. 위쪽 "보관함"에서 다시 볼 수 있어요.` : '이미 보관함에 있어요.';
-    if (name) $('read-title').textContent = `${name}님이 보낸 영수증`;
+    if (name) $('read-title').textContent = `${name}님이 보낸 ${current.data.p ? '정산 영수증' : '영수증'}`;
     if (res === 'added') confetti(30);
     setKeepButton(findInBox(current.code));
   });
