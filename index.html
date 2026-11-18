@@ -22,34 +22,34 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <!-- 본문 글꼴 Pretendard 1.3.9 (SIL OFL) -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="css/style.css?v=202611181607">
+<link rel="stylesheet" href="css/style.css?v=202611181627">
 <!-- 링크 압축 라이브러리 (버전 고정 + 무결성 확인) -->
 <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js" integrity="sha384-0d+Gr7vM4Drod8E3hXKgciWJSWbjD/opKLLygI9ktiWbuvlDwQLzU46wJ9s5gsp7" crossorigin="anonymous"></script>
 <!-- 새로 올릴 때마다 v= 값을 바꾸면 휴대전화가 옛 파일 대신 새 파일을 받는다 (tools/bump-version.mjs) -->
 <script type="importmap">
 { "imports": {
-  "./js/app.js": "./js/app.js?v=202611181607",
-  "./js/box.js": "./js/box.js?v=202611181607",
-  "./js/config.js": "./js/config.js?v=202611181607",
-  "./js/image.js": "./js/image.js?v=202611181607",
-  "./js/maker.js": "./js/maker.js?v=202611181607",
-  "./js/music.js": "./js/music.js?v=202611181607",
-  "./js/ocr.js": "./js/ocr.js?v=202611181607",
-  "./js/parse.js": "./js/parse.js?v=202611181607",
-  "./js/receipt.js": "./js/receipt.js?v=202611181607",
-  "./js/share.js": "./js/share.js?v=202611181607",
-  "./js/states.js": "./js/states.js?v=202611181607",
-  "./js/storage.js": "./js/storage.js?v=202611181607",
-  "./js/validate.js": "./js/validate.js?v=202611181607",
-  "./js/viewer.js": "./js/viewer.js?v=202611181607",
-  "./js/weather.js": "./js/weather.js?v=202611181607",
-  "./js/places.js": "./js/places.js?v=202611181607",
-  "./js/reactions.js": "./js/reactions.js?v=202611181607",
-  "./js/settle.js": "./js/settle.js?v=202611181607",
-  "./js/insta.js": "./js/insta.js?v=202611181607"
+  "./js/app.js": "./js/app.js?v=202611181627",
+  "./js/box.js": "./js/box.js?v=202611181627",
+  "./js/config.js": "./js/config.js?v=202611181627",
+  "./js/image.js": "./js/image.js?v=202611181627",
+  "./js/maker.js": "./js/maker.js?v=202611181627",
+  "./js/music.js": "./js/music.js?v=202611181627",
+  "./js/ocr.js": "./js/ocr.js?v=202611181627",
+  "./js/parse.js": "./js/parse.js?v=202611181627",
+  "./js/receipt.js": "./js/receipt.js?v=202611181627",
+  "./js/share.js": "./js/share.js?v=202611181627",
+  "./js/states.js": "./js/states.js?v=202611181627",
+  "./js/storage.js": "./js/storage.js?v=202611181627",
+  "./js/validate.js": "./js/validate.js?v=202611181627",
+  "./js/viewer.js": "./js/viewer.js?v=202611181627",
+  "./js/weather.js": "./js/weather.js?v=202611181627",
+  "./js/places.js": "./js/places.js?v=202611181627",
+  "./js/reactions.js": "./js/reactions.js?v=202611181627",
+  "./js/settle.js": "./js/settle.js?v=202611181627",
+  "./js/insta.js": "./js/insta.js?v=202611181627"
 } }
 </script>
-<script type="module" src="./js/app.js?v=202611181607"></script>
+<script type="module" src="./js/app.js?v=202611181627"></script>
 </head>
 <body>
 
@@ -409,6 +409,18 @@
     <div id="settle-result" hidden>
       <div class="receipt-stage" id="settle-receipt"></div>
       <p class="status-line" id="settle-save-status" role="status" aria-live="polite"></p>
+
+      <!-- 소비 분석: 지난 기간 비교는 바로, 분류·코멘트는 AI 버튼을 누를 때만 -->
+      <section class="card insight" id="insight" aria-labelledby="insight-title">
+        <h2 class="replies__title" id="insight-title">소비 분석</h2>
+        <p class="insight-compare" id="insight-compare"></p>
+        <p class="hint" id="insight-hint">버튼을 누르면 가게 이름·금액·횟수만 오픈하사 AI 서버로 보내 카페·식사·교통처럼 나눠요.</p>
+        <button type="button" class="btn btn--soft btn--block" id="insight-ai" aria-describedby="insight-hint">AI로 나눠서 분석하기</button>
+        <div class="state-box" id="insight-state" aria-live="polite"></div>
+        <ul class="insight-bars" id="insight-bars" aria-label="분류별 쓴 돈" hidden></ul>
+        <p class="insight-comment" id="insight-comment" hidden></p>
+      </section>
+
       <div class="stack-btns">
         <button type="button" class="btn btn--primary btn--block" id="settle-link">링크 보내기</button>
         <div class="insta-row">

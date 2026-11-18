@@ -411,7 +411,7 @@ function renderWeatherPicked() {
   text.innerHTML = '<span class="weather-picked__icon" aria-hidden="true"></span><span><b></b><small></small></span>';
   text.querySelector('.weather-picked__icon').textContent = icon;
   text.querySelector('b').textContent = `${label} ${wx.w.t}°`;
-  text.querySelector('small').textContent = `${formatDayKo(wx.date)} · ${wx.place} 근처 · ${wx.w.kind === 'max' ? '그날 최고 기온' : '지금 기온'}`;
+  text.querySelector('small').textContent = `${wx.place} 근처 · 지금 기온`;
   const rm = document.createElement('button');
   rm.type = 'button';
   rm.className = 'btn btn--small btn--soft';
@@ -441,17 +441,18 @@ async function loadWeather(getPlace, source) {
     return;
   }
   try {
-    const w = await fetchWeather(draft.date, place);
+    // 날씨는 영수증 날짜와 상관없이 늘 "지금 내 위치(고른 지역)의 기온" (2026-11-18 사용자 결정)
+    const w = await fetchWeather(todayStr(), place);
     if (!w) {
       showEmpty(state, {
         where: '날씨',
-        title: `${formatDayKo(draft.date)} ${place.name} 날씨 기록을 찾지 못했어요.`,
-        desc: '어제 기록은 기상청에 다음 날 오전쯤 올라와요. 다른 지역을 고르거나 날씨 없이 만들어도 돼요.',
+        title: `${place.name} 지금 날씨를 찾지 못했어요.`,
+        desc: '기상청 자료가 잠깐 비어 있을 수 있어요. 다른 지역을 고르거나 날씨 없이 만들어도 돼요.',
         actions: [{ label: '다른 지역 고르기', onClick: () => $('weather-region').focus() }],
       });
       return;
     }
-    draft.weather = { date: draft.date, place: place.name, w };
+    draft.weather = { place: place.name, w };
     clearState(state, '날씨');
     renderWeatherPicked();
   } catch (e) {
@@ -618,16 +619,8 @@ export function enterStep(n) {
     renderRows();
   }
   if (n === 3) {
-    // 날씨는 오늘이 아니라 영수증 날짜 기준이라, 어느 날짜인지 먼저 알려 준다 (샘플 캡처는 10월 날짜)
-    $('weather-date').textContent = draft.date === todayStr()
-      ? '오늘 날씨(지금 기온)를 넣어요.'
-      : `영수증 날짜인 ${formatDayKo(draft.date)}의 날씨(그날 최고 기온)를 넣어요. 오늘 날씨가 아니에요.`;
+    $('weather-date').textContent = '지금 내 위치(또는 고른 지역)의 기온을 넣어요.';
     renderMoods();
-    if (draft.weather && draft.weather.date !== draft.date) {
-      draft.weather = null;
-      $('weather-region').value = '';
-      showEmpty($('weather-state'), { where: '날씨', title: '영수증 날짜가 바뀌어서 날씨를 뺐어요.', desc: '바뀐 날짜의 날씨를 다시 넣어 주세요.', actions: [] });
-    }
     renderWeatherPicked();
     if (!$('nick').value) $('nick').value = getNick();
     updateCounter();

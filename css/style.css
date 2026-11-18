@@ -641,6 +641,18 @@ textarea.input { resize: vertical; line-height: 1.5; }
 .note-chip[aria-pressed="true"] { background: var(--pink); color: var(--pink-ink); box-shadow: inset 0 0 0 2px var(--pink-line); font-weight: 700; }
 @media (hover: hover) { .note-chip:hover { background: var(--pink-soft); } }
 .settle-note { margin-top: 0.6rem; }
+/* 소비 분석 카드: 분류별 가로 막대 (전체 대비 비율, 한 가지 색) */
+.insight { margin-top: 0.5rem; }
+.insight-compare { font-weight: 700; color: var(--ink); margin: 0.2rem 0 0.6rem; }
+.insight-compare[hidden] { display: none; }
+.insight-bars { list-style: none; padding: 0; margin: 0.4rem 0 0; display: flex; flex-direction: column; gap: 0.8rem; }
+.insight-bar__head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.6rem; }
+.insight-bar__head b { font-size: 0.95rem; }
+.insight-bar__val { font-size: 0.88rem; color: var(--sub); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.insight-bar__track { display: block; height: 8px; margin: 0.3rem 0 0.25rem; background: var(--fill); border-radius: 4px; overflow: hidden; }
+.insight-bar__track i { display: block; height: 100%; background: #b4566a; border-radius: 4px; } /* 흰 바탕 대비 3:1 이상 (dataviz 검사 통과) */
+.insight-bar small { display: block; font-size: 0.8rem; color: var(--muted); line-height: 1.4; }
+.insight-comment { margin: 1rem 0 0; padding: 0.8rem 0.9rem; border-radius: var(--radius-sm); background: var(--pink-soft); color: var(--pink-ink); font-weight: 600; line-height: 1.5; }
 
 /* ───────── 토스트 (아래에서 올라오는 알림) ───────── */
 .toast {

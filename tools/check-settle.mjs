@@ -19,6 +19,15 @@ await p.route('**/api/settle-note', async (route) => {
   if (aiMode === 'limit') return route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ ok: false, code: 'limit' }) });
   return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, notes: ['빵집이 나를 키운 달', '비 오는 날엔 빵', '다음 달도 잘 먹자'] }) });
 });
+// 소비 분석: AI 는 가게 → 분류 이름표와 코멘트만 준다 (비율은 화면이 계산)
+let insightMode = 'ok';
+let insightBody = null;
+await p.route('**/api/settle-insight', async (route) => {
+  if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204 });
+  insightBody = JSON.parse(route.request().postData() || 'null');
+  if (insightMode === 'limit') return route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ ok: false, code: 'limit' }) });
+  return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, map: { '빵집 모닝': '간식·디저트', 편의점: '편의점·마트', 지하철: '교통' }, comment: '간식·디저트가 73%로 가장 커요.' }) });
+});
 
 const pad = (n) => String(n).padStart(2, '0');
 const t = new Date();
@@ -78,6 +87,21 @@ record('날짜 줄은 기간, 아래 정산 줄', metas[0] === `${FIRST} ~ ${TOD
 record('한마디·이름이 영수증에', /비 오는 날엔 빵/.test(await text('#settle-receipt .receipt__note')) && /숨/.test(await text('#settle-receipt .receipt__from')));
 const over = await p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 record('360px 가로 넘침 없음 (결과)', over <= 0, `${over}px`);
+
+// 소비 분석 카드
+const cmp = await text('#insight-compare');
+record('지난 달 같은 기간과 비교 (바로 계산)', /지난 달 같은 기간/.test(cmp) && /(더|덜) 썼어요|비교할 수 없어요|똑같이/.test(cmp), cmp);
+insightMode = 'limit';
+await p.click('#insight-ai');
+await p.waitForSelector('#insight-state .state--error');
+record('분석 한도 초과: 안내 + 다시 버튼', /1분에 10번/.test(await text('#insight-state')) && (await p.isEnabled('#insight-ai')));
+insightMode = 'ok';
+await p.click('#insight-ai');
+await p.waitForSelector('#insight-bars:not([hidden]) .insight-bar');
+const bars = await p.$$eval('#insight-bars .insight-bar', (r) => r.map((x) => `${x.querySelector('b').textContent} ${x.querySelector('.insight-bar__val').textContent}`));
+record('분류별 막대: 금액 큰 순, 비율은 화면이 계산', bars.length === 3 && bars[0] === '간식·디저트 73% · 11,300원' && bars[2] === '교통 9% · 1,450원', bars.join(' | '));
+record('AI 코멘트 표시', /73%/.test(await text('#insight-comment')));
+record('분석에 보낸 내용: 가게·금액·횟수만 (이름 없음)', insightBody && insightBody.shops.length === 3 && insightBody.shops[0][0] === '빵집 모닝' && !JSON.stringify(insightBody).includes('숨'), JSON.stringify(insightBody));
 await p.waitForTimeout(1200);
 await p.screenshot({ path: 'out/settle-result.png', fullPage: true });
 

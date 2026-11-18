@@ -3,7 +3,7 @@
 // 가게별로 묶어 금액 큰 순으로 담고, 10곳이 넘으면 9곳 + "그 외 N곳" 한 줄.
 // 한마디는 직접 쓰거나, 오픈하사 AI 추천(api/settle-note.js)에서 고른다. AI 가 안 돼도 정산은 만들 수 있다.
 
-import { LIMITS, MOODS, WEATHER, SETTLE_NOTE_URL, AI_TIMEOUT_MS } from './config.js';
+import { LIMITS, MOODS, WEATHER, SETTLE_NOTE_URL, AI_TIMEOUT_MS, SETTLE_INSIGHT_URL, INSIGHT_TIMEOUT_MS } from './config.js';
 import { loadBox, addToBox, getNick, setNick } from './storage.js';
 import { renderReceipt, formatDayKo, formatWon, totalOf } from './receipt.js';
 import { encodeReceipt, linkFor, shareLink } from './share.js';
@@ -23,7 +23,7 @@ let picked = new Set();   // 직접 고르기에서 고른 보관함 key
 let made = null;          // 만든 정산 영수증 { data, code }
 let aiCtrl = null;        // 진행 중인 AI 추천 (다시 누르면 앞의 것을 멈춘다)
 
-// 기간의 시작·끝 날짜. 주는 월요일부터, 이번 주·이번 달은 오늘까지
+// 기간의 시작·끝 날짜. 주는 월요일부터, 이번 주·이번 달은 오늘까지 (주: 월요일 시작)
 function bounds(kind) {
   const t = new Date();
   if (kind === 'week') {
@@ -195,6 +195,25 @@ const AI_WHY = {
   server: 'AI 서버에서 한마디를 받지 못했어요.',
 };
 
+// 우리 서버(Vercel 함수)에 POST. 실패하면 kind(limit·timeout·offline·server·abort)를 붙여 던진다
+async function postAI(url, body, timeoutMs, signal) {
+  let timedOut = false;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => { timedOut = true; ctrl.abort(); }, timeoutMs);
+  signal.addEventListener('abort', () => ctrl.abort());
+  try {
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctrl.signal });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data || !data.ok) throw Object.assign(new Error((data && data.code) || 'HTTP ' + res.status), { kind: data && data.code === 'limit' ? 'limit' : 'server' });
+    return data;
+  } catch (e) {
+    if (!e.kind) e.kind = signal.aborted ? 'abort' : timedOut ? 'timeout' : navigator.onLine === false ? 'offline' : 'server';
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function fetchNotes(s, signal) {
   const body = {
     period: RANGE_KO[range],
@@ -205,23 +224,9 @@ async function fetchNotes(s, signal) {
     moods: s.moods,
     weather: s.weather,
   };
-  let timedOut = false;
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => { timedOut = true; ctrl.abort(); }, AI_TIMEOUT_MS);
-  signal.addEventListener('abort', () => ctrl.abort());
-  try {
-    const res = await fetch(SETTLE_NOTE_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctrl.signal });
-    const data = await res.json().catch(() => null);
-    if (!res.ok || !data || !data.ok || !Array.isArray(data.notes) || !data.notes.length) {
-      throw Object.assign(new Error((data && data.code) || 'HTTP ' + res.status), { kind: data && data.code === 'limit' ? 'limit' : 'server' });
-    }
-    return data.notes;
-  } catch (e) {
-    if (!e.kind) e.kind = signal.aborted ? 'abort' : timedOut ? 'timeout' : navigator.onLine === false ? 'offline' : 'server';
-    throw e;
-  } finally {
-    clearTimeout(timer);
-  }
+  const data = await postAI(SETTLE_NOTE_URL, body, AI_TIMEOUT_MS, signal);
+  if (!Array.isArray(data.notes) || !data.notes.length) throw Object.assign(new Error('empty'), { kind: 'server' });
+  return data.notes;
 }
 
 async function recommend() {
@@ -299,7 +304,7 @@ function make() {
   showBlockError(err, '');
   setNick(nick.value.trim());
   const saved = addToBox(code, 'mine', data, made && made.code);
-  made = { data, code, saved };
+  made = { data, code, saved, kind: range, sum: s, prev: prevSummary(range) };
   showResult(true);
 }
 
@@ -323,6 +328,128 @@ function showResult(celebrate) {
   reportState('정산 영수증', 'ok');
   if (celebrate) setTimeout(() => confetti(), 900);
   warmInstaImages(r);
+  resetInsight();
+}
+
+// ───────── 소비 분석 (정산 영수증 아래 카드) ─────────
+// 지난 기간 비교는 이 브라우저에서 바로 계산하고, 분류·코멘트는 AI 버튼을 누를 때만 묻는다.
+// 비율·합계는 AI 가 아니라 여기서 계산한다 (AI 는 가게 → 분류 이름표만 붙인다).
+const PREV_LABEL = { week: '지난 주 같은 기간', month: '지난 달 같은 기간', last: '그 전 달' };
+let insightCtrl = null;
+
+// 비교할 지난 기간 [시작, 끝] (직접 고르기는 비교하지 않음)
+function prevBounds(kind) {
+  const t = new Date();
+  if (kind === 'week') {
+    const s = new Date(t.getFullYear(), t.getMonth(), t.getDate() - ((t.getDay() + 6) % 7) - 7);
+    return [ymd(s), ymd(new Date(t.getFullYear(), t.getMonth(), t.getDate() - 7))];
+  }
+  if (kind === 'month') {
+    const last = new Date(t.getFullYear(), t.getMonth(), 0).getDate();
+    return [ymd(new Date(t.getFullYear(), t.getMonth() - 1, 1)), ymd(new Date(t.getFullYear(), t.getMonth() - 1, Math.min(t.getDate(), last)))];
+  }
+  if (kind === 'last') return [ymd(new Date(t.getFullYear(), t.getMonth() - 2, 1)), ymd(new Date(t.getFullYear(), t.getMonth() - 1, 0))];
+  return null;
+}
+
+function prevSummary(kind) {
+  const b = prevBounds(kind);
+  if (!b) return null;
+  const list = (myReceipts() || []).filter((e) => e.data.d >= b[0] && e.data.d <= b[1]);
+  const total = list.reduce((s, e) => s + totalOf(e.data), 0);
+  return { label: PREV_LABEL[kind], from: b[0], to: b[1], receipts: list.length, total };
+}
+
+function renderCompare() {
+  const p = made.prev;
+  const el = $('insight-compare');
+  el.hidden = !p;
+  if (!p) return;
+  const short = (d) => `${Number(d.slice(5, 7))}.${Number(d.slice(8))}`; // "2026-10-01" → "10.1"
+  const when = `${PREV_LABEL[made.kind]}(${short(p.from)}~${short(p.to)})`;
+  if (!p.total) { el.textContent = `${when}에는 내 영수증이 없어서 비교할 수 없어요.`; return; }
+  const diff = made.sum.total - p.total;
+  const pct = Math.round((Math.abs(diff) / p.total) * 100);
+  el.textContent = diff === 0
+    ? `${when}과 똑같이 ${formatWon(p.total)}원 썼어요.`
+    : `${when}보다 ${formatWon(Math.abs(diff))}원 ${diff > 0 ? '더' : '덜'} 썼어요 (${diff > 0 ? '+' : '−'}${pct}%).`;
+}
+
+function resetInsight() {
+  if (insightCtrl) insightCtrl.abort();
+  insightCtrl = null;
+  clearState($('insight-state'));
+  $('insight-bars').hidden = true;
+  $('insight-bars').replaceChildren();
+  $('insight-comment').hidden = true;
+  $('insight-ai').hidden = false;
+  $('insight-ai').disabled = false;
+  renderCompare();
+}
+
+// 가게 → 분류 이름표로 분류별 합계를 만든다 (이름표가 없는 가게는 기타)
+function byCategory(groups, map) {
+  const cats = new Map();
+  groups.forEach((g) => {
+    const c = (map && map[g.name]) || '기타';
+    const x = cats.get(c) || { cat: c, amount: 0, shops: [] };
+    x.amount += g.amount;
+    x.shops.push(g.name);
+    cats.set(c, x);
+  });
+  const total = groups.reduce((s, g) => s + g.amount, 0);
+  return [...cats.values()].sort((a, b) => b.amount - a.amount).map((x) => ({ ...x, share: (x.amount / total) * 100 }));
+}
+
+function renderBars(cats) {
+  const ul = $('insight-bars');
+  ul.replaceChildren(...cats.map((c) => {
+    const li = document.createElement('li');
+    li.className = 'insight-bar';
+    const pct = c.share < 1 ? '1% 미만' : `${Math.round(c.share)}%`;
+    li.innerHTML = '<span class="insight-bar__head"><b></b><span class="insight-bar__val"></span></span><span class="insight-bar__track" aria-hidden="true"><i></i></span><small></small>';
+    li.querySelector('b').textContent = c.cat;
+    li.querySelector('.insight-bar__val').textContent = `${pct} · ${formatWon(c.amount)}원`;
+    li.querySelector('i').style.width = `${Math.max(c.share, 1.5)}%`;
+    li.querySelector('small').textContent = c.shops.join(', ');
+    return li;
+  }));
+  ul.hidden = false;
+}
+
+async function analyze() {
+  if (!made) return;
+  resetInsight();
+  const my = (insightCtrl = new AbortController());
+  $('insight-ai').disabled = true;
+  showLoading($('insight-state'), { where: '소비 분석', text: 'AI가 가게를 나누고 분석하는 중… (20초쯤 걸릴 수 있어요)' });
+  const p = made.prev;
+  const body = {
+    period: RANGE_KO[made.kind],
+    shops: made.sum.groups.slice(0, 40).map((g) => [Array.from(g.name).slice(0, LIMITS.nameMax).join(''), g.amount, g.visits]),
+    prev: p && p.total ? { label: p.label, total: p.total } : null,
+  };
+  try {
+    const data = await postAI(SETTLE_INSIGHT_URL, body, INSIGHT_TIMEOUT_MS, my.signal);
+    if (my !== insightCtrl) return;
+    clearState($('insight-state'), '소비 분석');
+    $('insight-ai').hidden = true;
+    renderBars(byCategory(made.sum.groups, data.map));
+    const cm = $('insight-comment');
+    cm.textContent = data.comment || '';
+    cm.hidden = !data.comment;
+  } catch (e) {
+    if (e.kind === 'abort' || my !== insightCtrl) return;
+    $('insight-ai').disabled = false;
+    showError($('insight-state'), {
+      where: '소비 분석',
+      what: '분석하지 못했어요.',
+      why: AI_WHY[e.kind] || AI_WHY.server,
+      todo: e.kind === 'limit' ? '1분쯤 뒤에 다시 눌러 주세요. 정산 영수증은 그대로 쓸 수 있어요.' : '다시 눌러 주세요. 정산 영수증은 그대로 쓸 수 있어요.',
+      retryLabel: '다시 분석하기',
+      onRetry: analyze,
+    });
+  }
 }
 
 function backToForm() {
@@ -351,6 +478,7 @@ export function setupSettle() {
   $('note-ai').addEventListener('click', recommend);
   $('settle-make').addEventListener('click', make);
   $('settle-again').addEventListener('click', backToForm);
+  $('insight-ai').addEventListener('click', analyze);
   $('settle-link').addEventListener('click', async () => {
     if (!made) return;
     const url = linkFor(made.code);

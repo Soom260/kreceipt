@@ -363,14 +363,13 @@ const shot = (page, name) => page.screenshot({ path: `out/${name}.png`, fullPage
   await p2.selectOption('#weather-region', '159');
   await p2.waitForSelector('#weather-picked:not([hidden]), #weather-state .state--error, #weather-state .state--empty', { timeout: 20000 });
   const pk2 = await p2.textContent('#weather-picked');
-  record('지역 고르기(부산)·지난 날짜: 그날 최고 기온', /부산/.test(pk2) && /최고 기온/.test(pk2), pk2.replace(/\s+/g, ' ').trim());
-  // 날짜를 바꾸면 날씨가 빠짐
+  record('지역 고르기(부산)·지난 날짜여도 지금 기온', /부산/.test(pk2) && /지금 기온/.test(pk2), pk2.replace(/\s+/g, ' ').trim());
+  // 날짜를 바꿔도 날씨(지금 기온)는 그대로
   await p2.click('#view-make-3 .cta a');
   await p2.fill('#day-date', '2026-10-11');
   await p2.click('#to-step3');
   await p2.waitForURL(/#make-3/);
-  await p2.waitForSelector('#weather-state .state--empty');
-  record('영수증 날짜를 바꾸면 날씨를 빼고 안내', /날짜가 바뀌어서/.test(await p2.textContent('#weather-state')) && (await p2.isHidden('#weather-picked')));
+  record('영수증 날짜를 바꿔도 날씨(지금 기온)는 그대로', (await p2.isVisible('#weather-picked')) && /지금 기온/.test(await p2.textContent('#weather-picked')));
   await ctx2.close();
 
   // 위치 거부

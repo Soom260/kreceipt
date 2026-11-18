@@ -1,34 +1,7 @@
-// POST /api/settle-note → 정산 영수증에 붙일 한마디 3개 (Vercel 함수 → 오픈하사 AI).
+// POST /api/settle-note → 정산 영수증에 붙일 한마디 3개 (Vercel 함수 → 오픈하사 AI, api/_hasa.js).
 // 받는 것: 기간 이름·장수·날수·합계·가게별 금액(최대 10곳)·기분·날씨 개수. 캡처·보내는 사람 이름은 받지 않는다.
-// 키는 Vercel 환경 변수 HASA_API_KEY 에만 있다 (화면 코드·저장소에 없음).
-// 오픈하사: 경북IT융합산업기술원 공공 AI 서버, OpenAI 와 같은 /v1/chat/completions. 개발키는 1분에 10번·하루 500번.
 
-const ALLOWED_ORIGINS = ['https://soom260.github.io', 'https://kreceipt.vercel.app', 'http://127.0.0.1:8765', 'http://localhost:8765'];
-const BASE = 'https://open.hasa.re.kr/v1';
-// 개발키로 쓸 수 있는 모델이 문서에 없어, 한국어에 강한 순서로 시도한다 (403·404·503 이면 다음 모델)
-const MODELS = ['kanana-2-30b-a3b', 'hyperclovax-seed-32b', 'exaone-4.0-32b', 'gpt-oss-20b', 'llama-3.3-70b'];
-let goodModel = null; // 한 번 된 모델은 다음부터 먼저 쓴다 (함수가 살아 있는 동안)
-
-function cors(req, res) {
-  const origin = req.headers.origin;
-  res.setHeader('Vary', 'Origin');
-  if (origin && ALLOWED_ORIGINS.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    res.setHeader('Access-Control-Max-Age', '600');
-  }
-}
-
-function send(res, status, body) {
-  res.statusCode = status;
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-store');
-  res.end(JSON.stringify(body));
-}
-
-const isInt = (x, min, max) => Number.isInteger(x) && x >= min && x <= max;
-const shortStr = (x, max) => typeof x === 'string' && x.trim().length > 0 && Array.from(x).length <= max;
+const { send, isInt, shortStr, cleanLine, parseJSON, chat, handler, fail } = require('./_hasa.js');
 
 // 받은 내용 검사. 문제가 있으면 이유, 없으면 정리한 값
 function check(b) {
@@ -71,79 +44,22 @@ function userText(b) {
 
 // 모델 답 → 한마디 최대 3개 (JSON 이 아니면 줄 단위로 꺼낸다)
 function parseNotes(text) {
-  let t = String(text || '').replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-  let list = null;
-  const m = t.match(/\{[\s\S]*\}/);
-  if (m) { try { const o = JSON.parse(m[0]); if (Array.isArray(o.notes)) list = o.notes; } catch (e) { /* 아래 줄 단위로 */ } }
-  if (!list) list = t.split('\n');
+  const o = parseJSON(text);
+  const list = o && Array.isArray(o.notes) ? o.notes : String(text || '').replace(/<think>[\s\S]*?<\/think>/g, '').split('\n');
   const seen = new Set();
   return list
-    .map((s) => String(s)
-      .replace(/\p{Extended_Pictographic}|️|‍/gu, '')
-      .replace(/^[\s\-*•\d.)]+/, '')
-      .replace(/#\S+/g, '')
-      .replace(/^["'“”‘’「」]+|["'“”‘’「」]+$/g, '')
-      .trim())
+    .map((s) => cleanLine(s, 60))
     .filter((s) => s && !s.startsWith('{') && !seen.has(s) && seen.add(s))
-    .map((s) => Array.from(s).slice(0, 60).join(''))
     .slice(0, 3);
 }
 
-async function ask(model, key, body) {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 15000);
-  try {
-    const res = await fetch(`${BASE}/chat/completions`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: userText(body) }],
-        temperature: 0.8,
-        max_tokens: 400,
-      }),
-      signal: ctrl.signal,
-    });
-    if (!res.ok) return { status: res.status };
-    const data = await res.json();
-    const msg = data && data.choices && data.choices[0] && data.choices[0].message;
-    return { status: 200, notes: parseNotes(msg && msg.content) };
-  } catch (e) {
-    return { status: 504 };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-module.exports = async (req, res) => {
-  cors(req, res);
-  if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
-  if (req.method !== 'POST') { send(res, 405, { ok: false, code: 'method', message: 'POST 만 받아요.' }); return; }
-  const key = process.env.HASA_API_KEY;
-  if (!key) { send(res, 500, { ok: false, code: 'nokey', message: 'AI 서버 키가 설정되지 않았어요.' }); return; }
-
-  let body = req.body;
-  if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { body = null; } }
-  const c = check(body);
-  if (c.err) { send(res, 400, { ok: false, code: 'bad_input', message: c.err }); return; }
-
-  const order = goodModel ? [goodModel, ...MODELS.filter((m) => m !== goodModel)] : MODELS;
-  const tried = [];
-  const start = Date.now();
-  for (const model of order) {
-    if (Date.now() - start > 22000) break; // 화면은 30초까지 기다린다
-    const r = await ask(model, key, c.ok);
-    tried.push(`${model}:${r.status}`);
-    if (r.status === 429) { res.setHeader('X-Tried', tried.join(' ')); send(res, 429, { ok: false, code: 'limit', message: 'AI 서버 사용량이 잠깐 찼어요.' }); return; }
-    if (r.status === 401) { send(res, 502, { ok: false, code: 'key', message: 'AI 서버 키가 맞지 않아요.' }); return; }
-    if (r.status === 200 && r.notes.length) {
-      goodModel = model;
-      res.setHeader('X-Model', model);
-      send(res, 200, { ok: true, notes: r.notes });
-      return;
-    }
-    // 403(이 키로 못 쓰는 모델)·404·503·시간 초과·빈 답 → 다음 모델
-  }
-  res.setHeader('X-Tried', tried.join(' '));
-  send(res, 502, { ok: false, code: 'upstream', message: 'AI 서버에서 한마디를 받지 못했어요.' });
-};
+module.exports = handler(check, async (b, res) => {
+  const r = await chat(
+    [{ role: 'system', content: SYSTEM }, { role: 'user', content: userText(b) }],
+    { maxTokens: 400, accept: (text) => { const n = parseNotes(text); return n.length ? n : null; } },
+  );
+  if (!r.ok) { fail(res, r); return; }
+  res.setHeader('X-Model', r.model);
+  send(res, 200, { ok: true, notes: r.value });
+});
+module.exports.parseNotes = parseNotes;
