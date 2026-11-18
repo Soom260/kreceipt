@@ -411,7 +411,7 @@ function renderWeatherPicked() {
   text.innerHTML = '<span class="weather-picked__icon" aria-hidden="true"></span><span><b></b><small></small></span>';
   text.querySelector('.weather-picked__icon').textContent = icon;
   text.querySelector('b').textContent = `${label} ${wx.w.t}°`;
-  text.querySelector('small').textContent = `${wx.place} 근처 · ${wx.w.kind === 'max' ? '그날 최고 기온' : '지금 기온'}`;
+  text.querySelector('small').textContent = `${formatDayKo(wx.date)} · ${wx.place} 근처 · ${wx.w.kind === 'max' ? '그날 최고 기온' : '지금 기온'}`;
   const rm = document.createElement('button');
   rm.type = 'button';
   rm.className = 'btn btn--small btn--soft';
@@ -618,6 +618,10 @@ export function enterStep(n) {
     renderRows();
   }
   if (n === 3) {
+    // 날씨는 오늘이 아니라 영수증 날짜 기준이라, 어느 날짜인지 먼저 알려 준다 (샘플 캡처는 10월 날짜)
+    $('weather-date').textContent = draft.date === todayStr()
+      ? '오늘 날씨(지금 기온)를 넣어요.'
+      : `영수증 날짜인 ${formatDayKo(draft.date)}의 날씨(그날 최고 기온)를 넣어요. 오늘 날씨가 아니에요.`;
     renderMoods();
     if (draft.weather && draft.weather.date !== draft.date) {
       draft.weather = null;

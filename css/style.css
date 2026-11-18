@@ -370,6 +370,9 @@ textarea.input { resize: vertical; line-height: 1.5; }
 .label--sub { font-size: 0.88rem; font-weight: 600; color: var(--sub); margin: 0.9rem 0 0.3rem; }
 .select { background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
   background-position: calc(100% - 20px) 50%, calc(100% - 14px) 50%; background-size: 6px 6px; background-repeat: no-repeat; padding-right: 2.4rem; }
+/* 어느 날짜의 날씨인지 (영수증 날짜 기준) */
+.weather-date { font-size: 0.9rem; font-weight: 700; color: var(--pink-ink); margin: 0.1rem 0 0.3rem; }
+.weather-date:empty { display: none; }
 .weather-picked { justify-content: space-between; }
 .weather-picked__text { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
 .weather-picked__icon { font-size: 1.8rem; width: 48px; height: 48px; display: grid; place-items: center; background: #fff; border-radius: 14px; flex: 0 0 auto; }

@@ -22,34 +22,34 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <!-- 본문 글꼴 Pretendard 1.3.9 (SIL OFL) -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="css/style.css?v=202611181559">
+<link rel="stylesheet" href="css/style.css?v=202611181607">
 <!-- 링크 압축 라이브러리 (버전 고정 + 무결성 확인) -->
 <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js" integrity="sha384-0d+Gr7vM4Drod8E3hXKgciWJSWbjD/opKLLygI9ktiWbuvlDwQLzU46wJ9s5gsp7" crossorigin="anonymous"></script>
 <!-- 새로 올릴 때마다 v= 값을 바꾸면 휴대전화가 옛 파일 대신 새 파일을 받는다 (tools/bump-version.mjs) -->
 <script type="importmap">
 { "imports": {
-  "./js/app.js": "./js/app.js?v=202611181559",
-  "./js/box.js": "./js/box.js?v=202611181559",
-  "./js/config.js": "./js/config.js?v=202611181559",
-  "./js/image.js": "./js/image.js?v=202611181559",
-  "./js/maker.js": "./js/maker.js?v=202611181559",
-  "./js/music.js": "./js/music.js?v=202611181559",
-  "./js/ocr.js": "./js/ocr.js?v=202611181559",
-  "./js/parse.js": "./js/parse.js?v=202611181559",
-  "./js/receipt.js": "./js/receipt.js?v=202611181559",
-  "./js/share.js": "./js/share.js?v=202611181559",
-  "./js/states.js": "./js/states.js?v=202611181559",
-  "./js/storage.js": "./js/storage.js?v=202611181559",
-  "./js/validate.js": "./js/validate.js?v=202611181559",
-  "./js/viewer.js": "./js/viewer.js?v=202611181559",
-  "./js/weather.js": "./js/weather.js?v=202611181559",
-  "./js/places.js": "./js/places.js?v=202611181559",
-  "./js/reactions.js": "./js/reactions.js?v=202611181559",
-  "./js/settle.js": "./js/settle.js?v=202611181559",
-  "./js/insta.js": "./js/insta.js?v=202611181559"
+  "./js/app.js": "./js/app.js?v=202611181607",
+  "./js/box.js": "./js/box.js?v=202611181607",
+  "./js/config.js": "./js/config.js?v=202611181607",
+  "./js/image.js": "./js/image.js?v=202611181607",
+  "./js/maker.js": "./js/maker.js?v=202611181607",
+  "./js/music.js": "./js/music.js?v=202611181607",
+  "./js/ocr.js": "./js/ocr.js?v=202611181607",
+  "./js/parse.js": "./js/parse.js?v=202611181607",
+  "./js/receipt.js": "./js/receipt.js?v=202611181607",
+  "./js/share.js": "./js/share.js?v=202611181607",
+  "./js/states.js": "./js/states.js?v=202611181607",
+  "./js/storage.js": "./js/storage.js?v=202611181607",
+  "./js/validate.js": "./js/validate.js?v=202611181607",
+  "./js/viewer.js": "./js/viewer.js?v=202611181607",
+  "./js/weather.js": "./js/weather.js?v=202611181607",
+  "./js/places.js": "./js/places.js?v=202611181607",
+  "./js/reactions.js": "./js/reactions.js?v=202611181607",
+  "./js/settle.js": "./js/settle.js?v=202611181607",
+  "./js/insta.js": "./js/insta.js?v=202611181607"
 } }
 </script>
-<script type="module" src="./js/app.js?v=202611181559"></script>
+<script type="module" src="./js/app.js?v=202611181607"></script>
 </head>
 <body>
 
@@ -188,8 +188,9 @@
     <!-- 그날의 날씨: 위치(약 5km 단위로만 사용) 또는 지역 고르기 -->
     <div class="field card" id="weather-card">
       <p class="label" id="weather-label">그날의 날씨 <span class="opt">(선택)</span></p>
+      <p class="weather-date" id="weather-date"></p>
       <p class="hint" id="weather-hint">위치는 약 5km 칸으로만 바꿔 날씨를 찾는 데 쓰고, 어디에도 저장하지 않아요.</p>
-      <button type="button" class="btn btn--soft btn--block" id="weather-gps" aria-describedby="weather-hint">내 위치로 날씨 넣기</button>
+      <button type="button" class="btn btn--soft btn--block" id="weather-gps" aria-describedby="weather-date weather-hint">내 위치로 날씨 넣기</button>
       <label for="weather-region" class="label label--sub">또는 지역 고르기</label>
       <select id="weather-region" class="input select"></select>
       <div class="picked weather-picked" id="weather-picked" hidden></div>
