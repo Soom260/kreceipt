@@ -502,6 +502,96 @@ textarea.input { resize: vertical; line-height: 1.5; }
 .receipt__barcode i.gap { background: transparent; }
 .receipt__barcode i.blue { background: var(--point); }
 
+/* ───────── 영수증 모양 고르기 (4단계) ───────── */
+.style-pick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; margin: 0.6rem 0 0; background: var(--fill); border-radius: 14px; }
+.style-pick__btn {
+  min-height: 44px; border: 0; border-radius: 10px; background: transparent; cursor: pointer;
+  font: inherit; font-size: 0.92rem; font-weight: 600; color: var(--sub);
+  transition: background .2s var(--ease), color .2s var(--ease), box-shadow .2s var(--ease);
+}
+.style-pick__btn[aria-pressed="true"] { background: #fff; color: var(--pink-ink); font-weight: 800; box-shadow: 0 0 0 1.5px var(--pink-line); }
+.style-pick__btn:active { transform: scale(.97); }
+
+/* 승차권·카세트 공통: 종이를 여러 조각으로 그려서, 그림자는 모양을 따라가는 drop-shadow 로 */
+.receipt--ticket, .receipt--cassette {
+  background: transparent; padding: 0; box-shadow: none;
+  filter: drop-shadow(0 16px 22px rgba(107,58,66,.2)) drop-shadow(0 4px 8px rgba(0,0,0,.08));
+}
+
+/* ───────── 승차권 ───────── */
+/* 몸통과 떼는 쪽 사이 양옆을 반원으로 파낸다 (절취선) */
+.tk__main {
+  border-radius: 14px 14px 0 0; overflow: hidden; padding-bottom: 0.9rem;
+  background:
+    radial-gradient(circle at 0 100%, transparent 11px, #fff 11.5px) left bottom / 51% 100% no-repeat,
+    radial-gradient(circle at 100% 100%, transparent 11px, #fff 11.5px) right bottom / 51% 100% no-repeat;
+}
+.tk__stub {
+  border-radius: 0 0 14px 14px; padding: 0.7rem 1.2rem 1rem;
+  background:
+    radial-gradient(circle at 0 0, transparent 11px, #fff 11.5px) left top / 51% 100% no-repeat,
+    radial-gradient(circle at 100% 0, transparent 11px, #fff 11.5px) right top / 51% 100% no-repeat;
+}
+.tk__perf { height: 2px; margin: 0 12px; background: #fff linear-gradient(90deg, #dcb9bb 55%, transparent 0) 0 0 / 9px 2px repeat-x; }
+.tk__head {
+  display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;
+  padding: 0.6rem 1.2rem; background: #f1dede; color: #6b3a42; font-size: 0.7rem; line-height: 1.4;
+}
+.tk__brand { font-weight: 500; letter-spacing: 0.3em; font-size: 0.8rem; }
+.tk__kind { letter-spacing: 0.08em; }
+.tk__date { padding: 0.55rem 1.2rem 0; color: #6e6e73; font-size: 0.74rem; line-height: 1.5; }
+.tk__route { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: end; gap: 0.5rem; padding: 0.35rem 1.2rem 0; }
+.tk__stop small { display: block; color: #6e6e73; font-size: 0.68rem; line-height: 1.4; }
+.tk__stop b { display: block; font-family: var(--receipt-sans); font-weight: 800; font-size: 1.05rem; line-height: 1.3; word-break: keep-all; overflow-wrap: anywhere; }
+.tk__time { display: block; font-size: 0.95rem; font-weight: 500; line-height: 1.5; font-variant-numeric: tabular-nums; }
+.tk__stop--end { text-align: right; }
+.tk__arrow { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; padding-bottom: 0.35rem; color: #6e6e73; font-size: 0.64rem; line-height: 1.2; }
+.tk__arrow i { position: relative; display: block; width: 44px; height: 1.5px; background: #c99299; }
+.tk__arrow i::after { content: ""; position: absolute; right: -1px; top: -3.5px; border-left: 7px solid #c99299; border-top: 4px solid transparent; border-bottom: 4px solid transparent; }
+.tk__info { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.4rem; margin: 0.7rem 1.2rem 0; padding: 0.4rem 0.7rem; background: #f9efef; border-radius: 10px; line-height: 1.45; }
+.tk__info small { display: block; color: #6e6e73; font-size: 0.64rem; }
+.tk__info b { display: block; font-weight: 500; font-size: 0.8rem; white-space: nowrap; }
+.tk__main > .receipt__rule { margin: 0.5rem 1.2rem; }
+.tk__main > .receipt__items, .tk__main > .receipt__total { margin: 0 1.2rem; }
+.tk__t { font-style: normal; color: #6e6e73; font-size: 0.74rem; margin-right: 0.45rem; font-variant-numeric: tabular-nums; }
+.tk__note { margin-top: 0.1rem; font-size: 0.9rem; color: #1d1d1f; }
+.tk__stub .receipt__barcode { height: 34px; margin-top: 0.7rem; }
+
+/* ───────── 카세트 ───────── */
+/* 사이트처럼 연분홍·둥글게. 어두운 창 대신 옅은 창에 동그란 릴 두 개만 */
+.cs__shell { position: relative; padding: 12px 12px 0; background: #f1dede; border-radius: 22px; }
+.cs__label { position: relative; padding: 0.55rem 0.9rem 0.8rem; background: #fff; border-radius: 14px; overflow: hidden; }
+.cs__top { display: flex; justify-content: space-between; align-items: center; color: #a5797f; font-size: 0.66rem; letter-spacing: 0.2em; line-height: 1.4; }
+.cs__side { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #f1dede; color: #6b3a42; letter-spacing: 0; font-weight: 500; }
+.cs__title {
+  margin-top: 0.35rem; text-align: center; font-family: var(--receipt-sans); font-weight: 800; font-size: 1.05rem; line-height: 1.35; color: #1d1d1f;
+  overflow-wrap: anywhere; word-break: keep-all; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.cs__sub { text-align: center; color: #a5797f; font-family: var(--receipt-sans); font-size: 0.74rem; line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cs__stripes { height: 4px; width: 56px; margin: 0.45rem auto 0; border-radius: 999px; background: #e8cccd; }
+.cs__window { display: flex; align-items: center; justify-content: space-between; width: 78%; height: 46px; margin: 0.6rem auto 0; padding: 0 7px; background: #f9efef; border-radius: 999px; box-shadow: inset 0 0 0 1.5px #ecd6d7; }
+.cs__tape { flex: 1; height: 14px; margin: 0 8px; background: #ead2d3; border-radius: 999px; }
+.cs__reel {
+  flex: 0 0 32px; height: 32px; border-radius: 50%; background: #fff; box-shadow: inset 0 0 0 2px #e2bfc2;
+  background-image: radial-gradient(circle, #c99299 0 4px, transparent 4.5px), repeating-conic-gradient(transparent 0 40deg, #f1dede 40deg 80deg);
+}
+.cs__foot { display: flex; justify-content: center; align-items: center; gap: 22px; height: 22px; margin: 9px 40px 0; background: #e8cccd; border-radius: 12px 12px 0 0; }
+.cs__foot i { width: 7px; height: 7px; border-radius: 50%; background: #f9efef; }
+.cs__foot i:nth-child(2), .cs__foot i:nth-child(3) { display: none; }
+.cs__card { margin: 10px 8px 0; padding: 0.85rem 1.2rem 1rem; background: #fff; border-radius: 14px; }
+.cs__head { display: flex; justify-content: space-between; gap: 0.5rem; color: #6e6e73; font-size: 0.68rem; line-height: 1.5; margin-bottom: 0.35rem; }
+.cs__head span:first-child { letter-spacing: 0.15em; font-weight: 500; color: #6b3a42; }
+.cs__head span:first-child { flex: 0 0 auto; white-space: nowrap; }
+.cs__head span:last-child { text-align: right; }
+.cs__no { font-weight: 500; color: #c99299; font-size: 0.74rem; margin-right: 0.55rem; }
+/* 인쇄되는 동안과 미리듣기를 트는 동안 릴이 돈다 */
+.receipt--cassette.is-printing .cs__reel,
+.receipt--cassette:has(.play-btn[aria-pressed="true"]) .cs__reel { animation: reel 2.4s linear infinite; }
+@keyframes reel { to { transform: rotate(360deg); } }
+/* 이미지로 저장할 때: 따로 글꼴을 정한 칸도 기기 글꼴로 */
+.receipt--export .tk__stop b, .receipt--export .cs__title, .receipt--export .cs__sub { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; }
+.receipt--export .cs__reel { animation: none !important; }
+
 /* ───────── 보관함 ───────── */
 /* 미끄러지는 알약 모양 탭 (토스식) */
 .tabs { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 1rem 0 0.5rem; padding: 4px; background: #f3efef; border-radius: 16px; }
@@ -668,6 +758,8 @@ textarea.input { resize: vertical; line-height: 1.5; }
 }
 .export-stage--story .receipt { width: 286px; transform: rotate(-3deg) !important; box-shadow: 0 30px 50px -22px rgba(107,58,66,.55), 0 8px 18px -8px rgba(0,0,0,.18) !important; }
 .export-stage__tag { margin: 0; font-family: Consolas, Menlo, monospace; letter-spacing: 0.4em; padding-left: 0.4em; font-size: 12px; color: #6b3a42; }
+/* 승차권·카세트는 여러 조각이라 네모 그림자 대신 모양을 따라가는 그림자 */
+.export-stage .receipt--ticket, .export-stage .receipt--cassette { box-shadow: none !important; }
 
 /* ───────── 이미지 저장 창(휴대전화) ───────── */
 .img-dialog { border: 0; border-radius: 24px; padding: 1.1rem; width: min(420px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; background: var(--card); color: var(--ink); }

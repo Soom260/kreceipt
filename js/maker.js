@@ -24,7 +24,7 @@ export const todayStr = () => { const t = new Date(); return `${t.getFullYear()}
 let draft = null;
 let rowSeq = 0;
 function newDraft() {
-  return { rows: null, date: todayStr(), dayNote: '', items: null, song: null, mood: null, weather: null, data: null, code: null, savedKey: null };
+  return { rows: null, date: todayStr(), dayNote: '', items: null, song: null, mood: null, weather: null, style: 'r', data: null, code: null, savedKey: null };
 }
 draft = newDraft();
 
@@ -302,7 +302,7 @@ function toStep3() {
     const timeInp = $(`row${r.id}-tx__cell--time`);
     const tMsg = checkTime(r.time);
     if (tMsg) { setFieldError(timeInp, tMsg, { focus: false }); first = first || timeInp; } else clearFieldError(timeInp);
-    items.push({ name: r.name.trim(), amount: a.value });
+    items.push({ name: r.name.trim(), amount: a.value, time: normalizeTime(r.time) || '' });
   });
   if (first) { first.focus(); return; }
 
@@ -342,7 +342,7 @@ function toStep4() {
   if (mMsg) setFieldError(msg, mMsg, { focus: false }); else clearFieldError(msg);
   if (nMsg || mMsg) { (nMsg ? nick : msg).focus(); return; }
 
-  const data = buildReceipt({ date: draft.date, nick: nick.value, items: draft.items, message: msg.value, song: draft.song, mood: draft.mood, weather: draft.weather && draft.weather.w });
+  const data = buildReceipt({ date: draft.date, nick: nick.value, items: draft.items, message: msg.value, song: draft.song, mood: draft.mood, weather: draft.weather && draft.weather.w, style: draft.style });
   const code = encodeReceipt(data);
   if (code.length > LIMITS.linkMax) {
     showBlockError($('make-error'), `링크가 너무 길어져요 (지금 ${code.length.toLocaleString()}자, 최대 ${LIMITS.linkMax.toLocaleString()}자). 이전 단계에서 항목 수를 줄이거나, 항목 이름·한마디를 짧게 해 주세요.`);
@@ -500,7 +500,39 @@ function setupStep3() {
 }
 
 // ───────── 4단계: 완성·공유 ─────────
+// 모양 바꾸기: 같은 내용으로 영수증을 다시 만들고, 링크와 보관함 영수증도 새 모양으로 바꾼다
+function changeStyle(style) {
+  if (style === draft.style || !draft.data) return;
+  const data = buildReceipt({
+    date: draft.date, nick: draft.data.n || '', items: draft.items, message: draft.data.m || '',
+    song: draft.song, mood: draft.mood, weather: draft.weather && draft.weather.w, style,
+  });
+  const code = encodeReceipt(data);
+  if (code.length > LIMITS.linkMax) {
+    const st = $('share-status');
+    st.classList.add('is-error');
+    st.textContent = '이 모양으로는 링크가 너무 길어져요. 고치기에서 항목 수를 줄이거나 한마디를 짧게 해 주세요.';
+    return;
+  }
+  stopPreview();
+  draft.style = style;
+  const result = addToBox(code, 'mine', data, draft.savedKey);
+  if (result !== 'error') draft.savedKey = code;
+  draft.saveResult = result;
+  draft.data = data;
+  draft.code = code;
+  renderStep4();
+  reportState('영수증 모양', 'ok');
+}
+
+function renderStylePick() {
+  document.querySelectorAll('#style-pick [data-style]').forEach((b) => {
+    b.setAttribute('aria-pressed', String(b.dataset.style === draft.style));
+  });
+}
+
 function renderStep4() {
+  renderStylePick();
   const stage = $('my-receipt');
   const r = renderReceipt(draft.data);
   stage.replaceChildren(r);
@@ -534,6 +566,10 @@ function loadMyReplies() {
 
 function setupStep4() {
   $('my-replies-refresh').addEventListener('click', loadMyReplies);
+  $('style-pick').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-style]');
+    if (b) changeStyle(b.dataset.style);
+  });
   setupInstaButtons({
     copyBtn: $('copy-sticker'),
     shareBtn: $('share-story'),

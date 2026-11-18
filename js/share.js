@@ -6,6 +6,9 @@
 // s.p 는 노래 출처: 없으면 iTunes, "dz" 면 Deezer
 // f 는 오늘의 기분 (예: "love"), w 는 그날 날씨 { c: "sun", t: 21, k: "n"(지금)|"x"(최고) } — 위치는 담지 않는다
 // p 는 정산 영수증일 때만: { a: 시작 날짜, c: 모은 영수증 장수, k: "week"|"month"|"last"|"pick" } (d 는 끝 날짜)
+// y 는 영수증 모양: 없으면 영수증, "t" 면 승차권, "c" 면 카세트 (정산 영수증은 늘 영수증)
+// h 는 승차권일 때만: 항목마다의 시간 ["11:02", "", ...] (i 와 같은 순서, 시간이 없으면 빈 글자) — 출발·도착 시각에 쓴다
+// 옛 버전 화면은 y·h 를 모르므로 그냥 영수증으로 보여 준다.
 // 금융기관명·계좌·잔액·원본 인식 글자는 절대 담지 않는다.
 
 import { LIMITS, MOODS, WEATHER } from './config.js';
@@ -14,10 +17,13 @@ import { charCount } from './validate.js';
 const LZ = () => window.LZString;
 const SCHEMA_VERSION = 1;
 const SETTLE_KINDS = ['week', 'month', 'last', 'pick'];
+export const STYLES = ['t', 'c']; // 기본 영수증 말고 고를 수 있는 모양
 
 // 사용자가 고른 내용만 골라 링크용 객체로 만든다 (빈 값은 빼서 링크를 짧게)
-export function buildReceipt({ date, nick, items, message, song, mood, weather }) {
+export function buildReceipt({ date, nick, items, message, song, mood, weather, style }) {
   const r = { v: SCHEMA_VERSION, d: date, i: items.map((it) => [it.name.trim(), it.amount]) };
+  if (STYLES.includes(style)) r.y = style;
+  if (style === 't' && items.some((it) => it.time)) r.h = items.map((it) => it.time || '');
   if (nick && nick.trim()) r.n = nick.trim();
   if (message && message.trim()) r.m = message.trim();
   if (mood) r.f = mood;
@@ -61,6 +67,10 @@ export function validateReceipt(o) {
   if (o.s !== undefined) {
     const s = o.s;
     if (!s || !Number.isInteger(s.id) || s.id <= 0 || !isStr(s.t) || !isStr(s.a) || s.t.length > 200 || s.a.length > 200 || (s.p !== undefined && s.p !== 'dz')) return '노래 정보가 올바르지 않음';
+  }
+  if (o.y !== undefined && !STYLES.includes(o.y)) return '영수증 모양이 올바르지 않음';
+  if (o.h !== undefined) {
+    if (!Array.isArray(o.h) || o.h.length !== o.i.length || !o.h.every((t) => t === '' || (isStr(t) && /^([01]\d|2[0-3]):[0-5]\d$/.test(t)))) return '시간 정보가 올바르지 않음';
   }
   if (o.p !== undefined) {
     const p = o.p;
