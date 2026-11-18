@@ -1,6 +1,5 @@
 {
   "functions": {
-    "api/settle-note.js": { "maxDuration": 60 },
     "api/settle-insight.js": { "maxDuration": 60 }
   }
 }

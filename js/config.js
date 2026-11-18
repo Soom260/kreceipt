@@ -54,9 +54,6 @@ export const API_TIMEOUT_MS = 9000;
 // GitHub Pages 화면에서도 쓰도록 전체 주소로 적는다 (api/_itunes.js 의 ALLOWED_ORIGINS 에 화면 주소가 있어야 함).
 export const SONG_API_BASE = 'https://kreceipt.vercel.app/api';
 
-// 정산 영수증 한마디 추천 (Vercel 함수 api/settle-note.js → 오픈하사 AI). 언어 모델이라 넉넉히 기다린다
-export const SETTLE_NOTE_URL = 'https://kreceipt.vercel.app/api/settle-note';
-export const AI_TIMEOUT_MS = 30000;
 // 정산 소비 분석 (api/settle-insight.js): 분류 + 코멘트 두 번 묻느라 더 걸린다
 export const SETTLE_INSIGHT_URL = 'https://kreceipt.vercel.app/api/settle-insight';
 export const INSIGHT_TIMEOUT_MS = 45000;

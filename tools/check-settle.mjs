@@ -1,6 +1,6 @@
 // 정산 영수증 자동 점검: 기간별 합계, 친구·정산 영수증 빼기, AI 추천(가짜 응답) 성공·한도 초과, "그 외 N곳", 링크 열기, 360px 넘침.
 // 쓰는 법: 저장소 폴더에서 `node tools/serve.mjs` 를 켠 뒤, tools 폴더에서 `node check-settle.mjs`
-// AI 서버(api/settle-note)는 실제로 부르지 않고 가짜 응답으로 바꿔 끼운다 (하루 사용량 아끼기).
+// AI 서버(api/settle-insight)는 실제로 부르지 않고 가짜 응답으로 바꿔 끼운다 (하루 사용량 아끼기).
 import { chromium } from 'playwright';
 
 const BASE = process.env.BASE || 'http://127.0.0.1:8765/';
@@ -11,14 +11,6 @@ const results = [];
 const record = (name, ok, detail = '') => { results.push(ok); console.log(ok ? '✔' : '✘', name, detail ? '— ' + detail : ''); };
 p.on('pageerror', (e) => record('페이지 오류 없음', false, e.message));
 
-let aiMode = 'ok';
-let aiBody = null;
-await p.route('**/api/settle-note', async (route) => {
-  if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204 });
-  aiBody = JSON.parse(route.request().postData() || 'null');
-  if (aiMode === 'limit') return route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ ok: false, code: 'limit' }) });
-  return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, notes: ['빵집이 나를 키운 달', '비 오는 날엔 빵', '다음 달도 잘 먹자'] }) });
-});
 // 소비 분석: AI 는 가게 → 분류 이름표와 코멘트만 준다 (비율은 화면이 계산)
 let insightMode = 'ok';
 let insightBody = null;
@@ -63,14 +55,9 @@ await p.waitForFunction(() => document.getElementById('range-note').textContent.
 let note = await text('#range-note');
 record('이번 달: 내 영수증 2장만 (지난 달·친구 영수증 빼기)', /영수증 2장/.test(note) && /15,450원/.test(note), note);
 
-// AI 추천 (성공)
-await p.click('#note-ai');
-await p.waitForSelector('#note-chips .note-chip');
-const chips = await p.$$eval('#note-chips .note-chip', (b) => b.map((x) => x.textContent));
-record('AI 추천 3개가 보임', chips.length === 3, chips.join(' / '));
-record('AI 에 보낸 내용: 이름·캡처 없이 가게·금액·기분', aiBody && aiBody.receipts === 2 && aiBody.top[0][0] === '빵집 모닝' && aiBody.top[0][2] === 2 && aiBody.moods['피곤'] === 1 && !('n' in aiBody) && !JSON.stringify(aiBody).includes('민지'), JSON.stringify(aiBody));
-await p.click('#note-chips .note-chip:nth-child(2)');
-record('추천을 누르면 한마디 칸에 들어감', (await p.inputValue('#settle-note')) === '비 오는 날엔 빵');
+// 한마디는 직접 입력
+record('AI 한마디 추천 버튼 없음 (직접 입력만)', (await p.$('#note-ai')) === null);
+await p.fill('#settle-note', '비 오는 날엔 빵');
 
 // 만들기
 await p.fill('#settle-nick', '숨');
@@ -128,12 +115,10 @@ note = await text('#range-note');
 record('고른 2장: 25,500원', /영수증 2장/.test(note) && /25,500원/.test(note), note);
 await p.screenshot({ path: 'out/settle-form.png', fullPage: true });
 
-// AI 한도 초과
-aiMode = 'limit';
-await p.click('#note-ai');
-await p.waitForSelector('#note-state .state--error');
-record('AI 한도 초과: 이유·할 일 안내', /1분에 10번/.test(await text('#note-state')) && /직접 적어도/.test(await text('#note-state')), await text('#note-state'));
-record('AI 실패해도 만들 수 있음', await (async () => { await p.click('#settle-make'); await p.waitForSelector('#settle-receipt .receipt'); return true; })());
+// 고른 영수증으로 만들기
+await p.click('#settle-make');
+await p.waitForSelector('#settle-receipt .receipt');
+record('고른 영수증으로 정산 만들기', /25,500/.test(await p.getAttribute('#settle-receipt .receipt__total span:last-child', 'data-final')));
 
 // 링크로 연 정산 영수증
 const code = await p.evaluate(() => JSON.parse(localStorage.getItem('kreceipt.box.v1')).filter((e) => e.data.p).pop().key);

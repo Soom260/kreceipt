@@ -1,9 +1,9 @@
 // 정산 영수증 화면 (#settle): 보관함의 내 영수증 여러 장을 모아 한 장으로 정산한다.
 // 기간은 이번 주 · 이번 달 · 지난 달 · 직접 고르기. 친구 영수증과 이전 정산 영수증은 더하지 않는다 (같은 돈이 두 번 들어가지 않게).
 // 가게별로 묶어 금액 큰 순으로 담고, 10곳이 넘으면 9곳 + "그 외 N곳" 한 줄.
-// 한마디는 직접 쓰거나, 오픈하사 AI 추천(api/settle-note.js)에서 고른다. AI 가 안 돼도 정산은 만들 수 있다.
+// 한마디는 사용자가 직접 쓴다. AI(오픈하사)는 정산 아래 소비 분석 카드에서만 쓴다 (api/settle-insight.js).
 
-import { LIMITS, MOODS, WEATHER, SETTLE_NOTE_URL, AI_TIMEOUT_MS, SETTLE_INSIGHT_URL, INSIGHT_TIMEOUT_MS } from './config.js';
+import { LIMITS, SETTLE_INSIGHT_URL, INSIGHT_TIMEOUT_MS } from './config.js';
 import { loadBox, addToBox, getNick, setNick } from './storage.js';
 import { renderReceipt, formatDayKo, formatWon, totalOf } from './receipt.js';
 import { encodeReceipt, linkFor, shareLink } from './share.js';
@@ -21,7 +21,6 @@ const RANGE_KO = { week: '이번 주', month: '이번 달', last: '지난 달', 
 let range = 'month';
 let picked = new Set();   // 직접 고르기에서 고른 보관함 key
 let made = null;          // 만든 정산 영수증 { data, code }
-let aiCtrl = null;        // 진행 중인 AI 추천 (다시 누르면 앞의 것을 멈춘다)
 
 // 기간의 시작·끝 날짜. 주는 월요일부터, 이번 주·이번 달은 오늘까지 (주: 월요일 시작)
 function bounds(kind) {
@@ -69,14 +68,11 @@ export function summarize(entries, kind) {
 
   const dates = entries.map((e) => e.data.d).sort();
   const [a, b] = kind === 'pick' ? [dates[0], dates[dates.length - 1]] : bounds(kind);
-  const count = (pick) => entries.reduce((o, e) => { const k = pick(e.data); if (k) o[k] = (o[k] || 0) + 1; return o; }, {});
   return {
     items, groups, from: a, to: b,
     receipts: entries.length,
     days: new Set(dates).size,
     total: items.reduce((s, [, x]) => s + x, 0),
-    moods: count((d) => { const m = d.f && MOODS.find(([k]) => k === d.f); return m && m[2]; }),
-    weather: count((d) => d.w && WEATHER[d.w.c] && WEATHER[d.w.c][1]),
   };
 }
 
@@ -169,7 +165,6 @@ function setRange(r) {
     const list = myReceipts() || [];
     $('pick-list').replaceChildren(...list.map(pickItem));
   }
-  resetNotes();
   updateSummary();
 }
 
@@ -181,18 +176,12 @@ function updateCounter() {
   c.classList.toggle('is-over', over > 0);
 }
 
-// ───────── AI 한마디 추천 ─────────
-function resetNotes() {
-  if (aiCtrl) aiCtrl.abort();
-  $('note-chips').replaceChildren();
-  clearState($('note-state'));
-}
-
+// ───────── AI 요청 (소비 분석) ─────────
 const AI_WHY = {
   limit: 'AI 서버 사용량이 잠깐 찼어요 (1분에 10번까지).',
-  timeout: `AI 서버가 ${AI_TIMEOUT_MS / 1000}초 안에 답하지 않았어요.`,
+  timeout: `AI 서버가 ${INSIGHT_TIMEOUT_MS / 1000}초 안에 답하지 않았어요.`,
   offline: '휴대전화(컴퓨터)가 인터넷에 연결되어 있지 않아요.',
-  server: 'AI 서버에서 한마디를 받지 못했어요.',
+  server: 'AI 서버에서 답을 받지 못했어요.',
 };
 
 // 우리 서버(Vercel 함수)에 POST. 실패하면 kind(limit·timeout·offline·server·abort)를 붙여 던진다
@@ -211,63 +200,6 @@ async function postAI(url, body, timeoutMs, signal) {
     throw e;
   } finally {
     clearTimeout(timer);
-  }
-}
-
-async function fetchNotes(s, signal) {
-  const body = {
-    period: RANGE_KO[range],
-    receipts: s.receipts,
-    days: s.days,
-    total: s.total,
-    top: s.groups.slice(0, 10).map((g) => [Array.from(g.name).slice(0, LIMITS.nameMax).join(''), g.amount, g.visits]),
-    moods: s.moods,
-    weather: s.weather,
-  };
-  const data = await postAI(SETTLE_NOTE_URL, body, AI_TIMEOUT_MS, signal);
-  if (!Array.isArray(data.notes) || !data.notes.length) throw Object.assign(new Error('empty'), { kind: 'server' });
-  return data.notes;
-}
-
-async function recommend() {
-  const s = updateSummary();
-  if (!s) { $('range-note').focus?.(); return; }
-  resetNotes();
-  const my = (aiCtrl = new AbortController());
-  const btn = $('note-ai');
-  btn.disabled = true;
-  showLoading($('note-state'), { where: '정산 한마디', text: 'AI가 한마디를 고르는 중… (10초쯤 걸릴 수 있어요)', kind: 'song' });
-  try {
-    const notes = await fetchNotes(s, my.signal);
-    if (my !== aiCtrl) return;
-    clearState($('note-state'), '정산 한마디');
-    $('note-chips').replaceChildren(...notes.map((t) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'note-chip';
-      b.setAttribute('aria-pressed', 'false');
-      b.textContent = t;
-      b.addEventListener('click', () => {
-        $('note-chips').querySelectorAll('.note-chip').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-        $('settle-note').value = t;
-        clearFieldError($('settle-note'));
-        updateCounter();
-      });
-      return b;
-    }));
-    $('note-chips').querySelector('.note-chip')?.focus();
-  } catch (e) {
-    if (e.kind === 'abort' || my !== aiCtrl) return;
-    showError($('note-state'), {
-      where: '정산 한마디',
-      what: '한마디를 추천받지 못했어요.',
-      why: AI_WHY[e.kind] || AI_WHY.server,
-      todo: e.kind === 'limit' ? '1분쯤 뒤에 다시 눌러 주세요. 한마디는 직접 적어도 돼요.' : '다시 눌러 보거나, 한마디를 직접 적어 주세요.',
-      retryLabel: '다시 추천받기',
-      onRetry: recommend,
-    });
-  } finally {
-    if (my === aiCtrl) { btn.disabled = false; aiCtrl = null; }
   }
 }
 
@@ -475,7 +407,6 @@ export function enterSettle() {
 export function setupSettle() {
   $('range-grid').querySelectorAll('.range').forEach((b) => b.addEventListener('click', () => setRange(b.dataset.range)));
   $('settle-note').addEventListener('input', () => { updateCounter(); clearFieldError($('settle-note')); });
-  $('note-ai').addEventListener('click', recommend);
   $('settle-make').addEventListener('click', make);
   $('settle-again').addEventListener('click', backToForm);
   $('insight-ai').addEventListener('click', analyze);
